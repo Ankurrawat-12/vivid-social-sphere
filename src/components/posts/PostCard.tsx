@@ -7,6 +7,9 @@ import { Heart, MessageSquare, Send, Bookmark, MoreHorizontal } from "lucide-rea
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Post } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface PostCardProps {
   post: Post;
@@ -16,14 +19,45 @@ const PostCard = ({ post }: PostCardProps) => {
   const [liked, setLiked] = useState(post.isLiked);
   const [saved, setSaved] = useState(post.isSaved);
   const [likesCount, setLikesCount] = useState(post.likes);
+  const { user } = useAuth();
 
-  const handleLike = () => {
+  const handleLike = async () => {
+    if (!user) return;
+
     if (liked) {
+      // Unlike post
+      const { error } = await supabase
+        .from('likes')
+        .delete()
+        .eq('post_id', post.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        toast.error('Failed to unlike post');
+        console.error('Error unliking post:', error);
+        return;
+      }
+      
       setLikesCount(likesCount - 1);
+      setLiked(false);
     } else {
+      // Like post
+      const { error } = await supabase
+        .from('likes')
+        .insert({
+          post_id: post.id,
+          user_id: user.id
+        });
+
+      if (error) {
+        toast.error('Failed to like post');
+        console.error('Error liking post:', error);
+        return;
+      }
+      
       setLikesCount(likesCount + 1);
+      setLiked(true);
     }
-    setLiked(!liked);
   };
 
   const handleSave = () => {
