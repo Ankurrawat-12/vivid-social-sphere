@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   Home,
@@ -10,7 +10,8 @@ import {
   User,
   Bell,
   Menu,
-  LogOut 
+  LogOut,
+  Upload
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import UploadPostForm from "@/components/posts/UploadPostForm";
 
 const Navbar = () => {
-  const [notifications, setNotifications] = React.useState(2);
   const { user, profile, signOut } = useAuth();
+  const [notifications, setNotifications] = useState(2);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b border-border z-50 px-4">
@@ -49,11 +58,11 @@ const Navbar = () => {
             <Link to="/explore" className="nav-icon">
               <Search />
             </Link>
-            <Link to="/create" className="nav-icon">
-              <PlusSquare />
-            </Link>
-            <Link to="/activity" className="nav-icon relative">
-              <Heart />
+            <Button variant="ghost" size="icon" onClick={() => setUploadDialogOpen(true)} className="nav-icon">
+              <Upload />
+            </Button>
+            <Link to="/notifications" className="nav-icon relative">
+              <Bell />
               {notifications > 0 && (
                 <span className="absolute -top-1 -right-1 bg-social-purple text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
                   {notifications}
@@ -106,6 +115,16 @@ const Navbar = () => {
           </nav>
         )}
       </div>
+
+      {/* Upload Post Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Post</DialogTitle>
+          </DialogHeader>
+          <UploadPostForm onComplete={() => setUploadDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 };
