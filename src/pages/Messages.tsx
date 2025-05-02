@@ -52,12 +52,13 @@ const Messages = () => {
     queryFn: async () => {
       if (!selectedUser) return [];
 
+      // Updated query with explicit column hinting
       const { data, error } = await supabase
         .from("messages")
         .select(`
           *,
-          sender:sender_id(id, username, avatar_url),
-          recipient:recipient_id(id, username, avatar_url)
+          sender_profile:sender_id(id, username, avatar_url, display_name),
+          recipient_profile:recipient_id(id, username, avatar_url, display_name)
         `)
         .or(`and(sender_id.eq.${user?.id},recipient_id.eq.${selectedUser.id}),and(sender_id.eq.${selectedUser.id},recipient_id.eq.${user?.id})`)
         .order("created_at", { ascending: true });
@@ -111,8 +112,8 @@ const Messages = () => {
         .insert(newMessage)
         .select(`
           *,
-          sender:sender_id(id, username, avatar_url),
-          recipient:recipient_id(id, username, avatar_url)
+          sender_profile:sender_id(id, username, avatar_url, display_name),
+          recipient_profile:recipient_id(id, username, avatar_url, display_name)
         `)
         .single();
         

@@ -16,6 +16,6 @@ export interface PostWithAuthor extends Post {
 }
 
 export interface MessageWithProfile extends Message {
-  sender: Profile;
-  recipient: Profile;
+  sender_profile: Profile;
+  recipient_profile: Profile;
 }
