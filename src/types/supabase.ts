@@ -14,3 +14,8 @@ export interface PostWithAuthor extends Post {
   comments_count: number;
   user_has_liked_post: boolean;
 }
+
+export interface MessageWithProfile extends Message {
+  sender: Profile;
+  recipient: Profile;
+}
