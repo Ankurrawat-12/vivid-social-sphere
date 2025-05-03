@@ -24,12 +24,19 @@ const PostsList = () => {
       throw error;
     }
 
+    // Transform counts from array objects to numbers
+    const transformedData = data.map(post => ({
+      ...post,
+      likes_count: parseInt(post.likes_count[0]?.count || "0", 10),
+      comments_count: parseInt(post.comments_count[0]?.count || "0", 10)
+    }));
+
     // Check if the user has liked each post
     const userId = (await supabase.auth.getUser()).data.user?.id;
     
     if (userId) {
       const postsWithLikeStatus = await Promise.all(
-        data.map(async (post) => {
+        transformedData.map(async (post) => {
           const { data: likeData } = await supabase
             .from('likes')
             .select('*')
@@ -44,13 +51,13 @@ const PostsList = () => {
         })
       );
       
-      return postsWithLikeStatus as PostWithProfile[];
+      return postsWithLikeStatus as unknown as PostWithProfile[];
     }
 
-    return (data as unknown as PostWithProfile[]).map(post => ({
+    return transformedData.map(post => ({
       ...post,
       user_has_liked: false
-    }));
+    })) as unknown as PostWithProfile[];
   };
 
   const { data: posts, isLoading, isError, error } = useQuery({
