@@ -3,20 +3,19 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import PostCard from "./PostCard";
-import { PostWithAuthor } from "@/types/supabase";
+import { PostWithProfile } from "@/types/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PostsList = () => {
-  const fetchPosts = async (): Promise<PostWithAuthor[]> => {
+  const fetchPosts = async (): Promise<PostWithProfile[]> => {
     // Get posts with author profile, like count, and comment count
     const { data, error } = await supabase
       .from('posts')
       .select(`
         *,
-        profiles:user_id(*),
+        profile:user_id(*),
         likes_count:likes(count),
-        comments_count:comments(count),
-        user_has_liked_post:likes!inner(*)
+        comments_count:comments(count)
       `)
       .order('created_at', { ascending: false });
 
@@ -25,7 +24,33 @@ const PostsList = () => {
       throw error;
     }
 
-    return data as unknown as PostWithAuthor[];
+    // Check if the user has liked each post
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    
+    if (userId) {
+      const postsWithLikeStatus = await Promise.all(
+        data.map(async (post) => {
+          const { data: likeData } = await supabase
+            .from('likes')
+            .select('*')
+            .eq('post_id', post.id)
+            .eq('user_id', userId)
+            .single();
+          
+          return {
+            ...post,
+            user_has_liked: !!likeData
+          };
+        })
+      );
+      
+      return postsWithLikeStatus as PostWithProfile[];
+    }
+
+    return (data as unknown as PostWithProfile[]).map(post => ({
+      ...post,
+      user_has_liked: false
+    }));
   };
 
   const { data: posts, isLoading, isError, error } = useQuery({
@@ -71,16 +96,16 @@ const PostsList = () => {
 
   return (
     <div className="max-w-lg mx-auto">
-      {posts.map((post) => (
+      {posts?.map((post) => (
         <PostCard key={post.id} post={{
           id: post.id,
           userId: post.user_id,
           user: {
-            id: post.profiles.id,
-            username: post.profiles.username,
-            displayName: post.profiles.display_name || post.profiles.username,
-            bio: post.profiles.bio || '',
-            profilePicture: post.profiles.avatar_url || '',
+            id: post.profile.id,
+            username: post.profile.username,
+            displayName: post.profile.display_name || post.profile.username,
+            bio: post.profile.bio || '',
+            profilePicture: post.profile.avatar_url || '',
             followers: 0,
             following: 0,
             posts: 0,
@@ -91,7 +116,7 @@ const PostsList = () => {
           likes: post.likes_count,
           comments: post.comments_count,
           timestamp: post.created_at,
-          isLiked: !!post.user_has_liked_post,
+          isLiked: post.user_has_liked,
           isSaved: false
         }} />
       ))}
