@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
@@ -32,11 +31,12 @@ import {
 } from "@/components/ui/dialog";
 import UploadPostForm from "@/components/posts/UploadPostForm";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const Navbar = () => {
   const { user, profile, signOut } = useAuth();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
   
   // Fetch unread notifications count
   const { data: notificationsCount = 0 } = useQuery({
@@ -86,7 +86,7 @@ const Navbar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, queryClient]);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b border-border z-50 px-4">

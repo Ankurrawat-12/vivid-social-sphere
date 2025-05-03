@@ -1,74 +1,138 @@
-import React, { useEffect, useState } from "react";
-import AppLayout from "@/components/layout/AppLayout";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { Heart, MessageSquare, UserPlus, Bell } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import AppLayout from "@/components/layout/AppLayout";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 import { Notification } from "@/types/supabase";
 
-const NotificationsPage = () => {
+const Notifications = () => {
   const { user } = useAuth();
-  const [notificationCount, setNotificationCount] = useState(0);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  // Fetch notifications from Supabase
+  // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
       if (!user) return [];
 
-      // Fetch notifications with the source user's profile
       const { data, error } = await supabase
         .from("notifications")
         .select(`
           *,
-          source_user:source_user_id(id, username, avatar_url, display_name)
+          source_user:profiles!notifications_source_user_id_fkey(*)
         `)
         .eq("target_user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Error fetching notifications:", error);
+        toast.error("Failed to load notifications");
         throw error;
       }
 
-      // Count unread notifications
-      const unreadCount = data.filter((n) => !n.is_read).length;
-      setNotificationCount(unreadCount);
-
-      // Mark notifications as read
-      if (unreadCount > 0) {
-        await supabase
-          .from("notifications")
-          .update({ is_read: true })
-          .eq("target_user_id", user.id)
-          .eq("is_read", false);
-      }
-
-      return data as Notification[];
+      return data as unknown as Notification[];
     },
     enabled: !!user,
   });
 
-  // Set up real-time subscription for new notifications
-  useEffect(() => {
+  // Mark notification as read
+  const markAsReadMutation = useMutation({
+    mutationFn: async ({ id, isRead }: { id: string, isRead: boolean }) => {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: isRead })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error updating notification:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notificationsCount"] });
+    },
+    onError: () => {
+      toast.error("Failed to update notification");
+    },
+  });
+
+  // Handle notification click
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.is_read) {
+      markAsReadMutation.mutate({ id: notification.id, isRead: true });
+    }
+
+    // Navigate based on notification type
+    switch (notification.type) {
+      case "like":
+      case "comment":
+        if (notification.post_id) {
+          navigate(`/post/${notification.post_id}`);
+        }
+        break;
+      case "follow":
+        navigate(`/profile/${notification.source_user.username}`);
+        break;
+      case "message":
+        navigate("/messages");
+        break;
+      case "mention":
+        if (notification.post_id) {
+          navigate(`/post/${notification.post_id}`);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Get notification icon and text based on type
+  const getNotificationContent = (notification: Notification) => {
+    const username = notification.source_user.username;
+    
+    switch (notification.type) {
+      case "like":
+        return `@${username} liked your post`;
+      case "comment":
+        return `@${username} commented on your post: "${notification.content}"`;
+      case "follow":
+        return `@${username} started following you`;
+      case "message":
+        return `@${username} sent you a message: "${notification.content}"`;
+      case "mention":
+        return `@${username} mentioned you in a post`;
+      default:
+        return "New notification";
+    }
+  };
+
+  // Subscribe to real-time notifications
+  React.useEffect(() => {
     if (!user) return;
 
     const channel = supabase
-      .channel("notifications_channel")
+      .channel('notifications_channel')
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
           filter: `target_user_id=eq.${user.id}`,
         },
         (payload) => {
-          // Update notification count
-          setNotificationCount((prev) => prev + 1);
+          toast.info("You have a new notification");
+          queryClient.invalidateQueries({ queryKey: ["notifications"] });
+          queryClient.invalidateQueries({ queryKey: ["notificationsCount"] });
         }
       )
       .subscribe();
@@ -76,95 +140,67 @@ const NotificationsPage = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "like":
-        return <Heart className="h-5 w-5 text-red-500" />;
-      case "comment":
-        return <MessageSquare className="h-5 w-5 text-blue-500" />;
-      case "follow":
-        return <UserPlus className="h-5 w-5 text-green-500" />;
-      case "message":
-        return <MessageSquare className="h-5 w-5 text-social-purple" />;
-      case "mention":
-        return <Bell className="h-5 w-5 text-amber-500" />;
-      default:
-        return null;
-    }
-  };
-
-  const getNotificationText = (notification: Notification) => {
-    switch (notification.type) {
-      case "like":
-        return "liked your post.";
-      case "comment":
-        return "commented on your post.";
-      case "follow":
-        return "started following you.";
-      case "message":
-        return "sent you a message.";
-      case "mention":
-        return "mentioned you in a comment.";
-      default:
-        return "";
-    }
-  };
+  }, [user, queryClient]);
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto py-6">
+      <div className="max-w-2xl mx-auto py-6 px-4">
         <h1 className="text-2xl font-bold mb-6">Notifications</h1>
         
         {isLoading ? (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-social-purple"></div>
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-social-purple"></div>
           </div>
         ) : notifications.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground">
-            <Bell className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-            <p>No notifications yet</p>
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No notifications yet</p>
           </div>
         ) : (
           <div className="space-y-4">
             {notifications.map((notification) => (
-              <div 
-                key={notification.id} 
-                className={cn(
-                  "p-4 border border-border rounded-md flex items-center gap-4",
-                  !notification.is_read && "bg-muted"
-                )}
+              <Card
+                key={notification.id}
+                className={`cursor-pointer transition-colors ${
+                  notification.is_read ? "bg-card" : "bg-muted/40"
+                }`}
+                onClick={() => handleNotificationClick(notification)}
               >
-                <div className="flex-shrink-0">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage 
-                      src={notification.source_user?.avatar_url || ''} 
-                      alt={notification.source_user?.username || ''} 
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage
+                        src={notification.source_user.avatar_url || ''}
+                        alt={notification.source_user.username || ''}
+                      />
+                      <AvatarFallback>
+                        {notification.source_user.username?.substring(0, 2).toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1">
+                      <p className={`text-sm ${!notification.is_read && "font-medium"}`}>
+                        {getNotificationContent(notification)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                      </p>
+                    </div>
+                    
+                    <Checkbox
+                      checked={notification.is_read}
+                      onCheckedChange={(checked) => {
+                        markAsReadMutation.mutate({
+                          id: notification.id,
+                          isRead: checked as boolean,
+                        });
+                        // Stop propagation to prevent navigation when clicking checkbox
+                        event?.stopPropagation();
+                      }}
+                      onClick={(e) => e.stopPropagation()}
                     />
-                    <AvatarFallback>
-                      {notification.source_user?.username?.substring(0, 2).toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{notification.source_user?.username || 'User'}</span>
-                    <span>{getNotificationText(notification)}</span>
                   </div>
-                  {notification.content && (
-                    <p className="text-sm mt-1 text-muted-foreground">{notification.content}</p>
-                  )}
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                  </div>
-                </div>
-                
-                <div className="flex-shrink-0">
-                  {getNotificationIcon(notification.type)}
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
@@ -173,4 +209,4 @@ const NotificationsPage = () => {
   );
 };
 
-export default NotificationsPage;
+export default Notifications;
