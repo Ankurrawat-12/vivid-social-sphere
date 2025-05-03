@@ -39,6 +39,10 @@ const MessagesList: React.FC<MessagesListProps> = ({
             src={message.media_url} 
             alt="Image" 
             className="rounded-md max-h-60 max-w-full mb-2" 
+            onError={(e) => {
+              console.error("Image load error:", e);
+              e.currentTarget.src = "/placeholder.svg";
+            }}
           />
         );
       case "video":
@@ -47,6 +51,7 @@ const MessagesList: React.FC<MessagesListProps> = ({
             src={message.media_url} 
             controls 
             className="rounded-md max-h-60 max-w-full mb-2" 
+            onError={(e) => console.error("Video load error:", e)}
           />
         );
       case "audio":
@@ -55,6 +60,7 @@ const MessagesList: React.FC<MessagesListProps> = ({
             src={message.media_url}
             controls
             className="w-full max-w-[200px] mb-2"
+            onError={(e) => console.error("Audio load error:", e)}
           />
         );
       case "file":

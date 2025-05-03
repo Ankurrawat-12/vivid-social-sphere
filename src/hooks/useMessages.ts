@@ -73,35 +73,41 @@ export const useMessages = (selectedUser: Profile | null) => {
       
       // Upload file if provided
       if (file) {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `${user.id}/${selectedUser.id}/${fileName}`;
-        
-        // Determine media type
-        if (file.type.startsWith("image/")) {
-          media_type = "image";
-        } else if (file.type.startsWith("video/")) {
-          media_type = "video";
-        } else if (file.type.startsWith("audio/")) {
-          media_type = "audio";
-        } else {
-          media_type = "file";
-        }
-        
-        const { error: uploadError } = await supabase.storage
-          .from("messages")
-          .upload(filePath, file);
+        try {
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${crypto.randomUUID()}.${fileExt}`;
+          const filePath = `${user.id}/${selectedUser.id}/${fileName}`;
           
-        if (uploadError) {
-          console.error("Error uploading file:", uploadError);
-          throw uploadError;
-        }
-        
-        const { data: publicUrlData } = supabase.storage
-          .from("messages")
-          .getPublicUrl(filePath);
+          // Determine media type
+          if (file.type.startsWith("image/")) {
+            media_type = "image";
+          } else if (file.type.startsWith("video/")) {
+            media_type = "video";
+          } else if (file.type.startsWith("audio/")) {
+            media_type = "audio";
+          } else {
+            media_type = "file";
+          }
           
-        media_url = publicUrlData.publicUrl;
+          const { error: uploadError, data: uploadData } = await supabase.storage
+            .from("messages")
+            .upload(filePath, file);
+            
+          if (uploadError) {
+            console.error("Error uploading file:", uploadError);
+            throw uploadError;
+          }
+          
+          const { data: publicUrlData } = supabase.storage
+            .from("messages")
+            .getPublicUrl(filePath);
+            
+          media_url = publicUrlData.publicUrl;
+        } catch (error) {
+          console.error("Error handling file upload:", error);
+          toast.error("Failed to upload media file");
+          throw error;
+        }
       }
       
       const newMessage = {
