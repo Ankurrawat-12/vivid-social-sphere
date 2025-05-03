@@ -27,8 +27,8 @@ const PostsList = () => {
     // Transform counts from array objects to numbers
     const transformedData = data.map(post => ({
       ...post,
-      likes_count: parseInt(post.likes_count[0]?.count || "0", 10),
-      comments_count: parseInt(post.comments_count[0]?.count || "0", 10)
+      likes_count: parseInt(String(post.likes_count[0]?.count || "0"), 10),
+      comments_count: parseInt(String(post.comments_count[0]?.count || "0"), 10)
     }));
 
     // Check if the user has liked each post
