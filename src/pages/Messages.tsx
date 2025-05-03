@@ -52,7 +52,7 @@ const Messages = () => {
     queryFn: async () => {
       if (!selectedUser) return [];
 
-      // Updated query with explicit column hinting
+      // Updated query with explicit profile selection
       const { data, error } = await supabase
         .from("messages")
         .select(`
@@ -79,7 +79,7 @@ const Messages = () => {
         markMessagesAsRead(messageIds);
       }
 
-      return data as MessageWithProfile[];
+      return data as unknown as MessageWithProfile[];
     },
     enabled: !!selectedUser && !!user,
   });
@@ -122,7 +122,18 @@ const Messages = () => {
         throw error;
       }
       
-      return data as MessageWithProfile;
+      // Create notification for the recipient
+      await supabase
+        .from("notifications")
+        .insert({
+          type: "message",
+          source_user_id: user.id,
+          target_user_id: selectedUser.id,
+          message_id: data.id,
+          content: messageContent.substring(0, 50) + (messageContent.length > 50 ? "..." : "")
+        });
+      
+      return data as unknown as MessageWithProfile;
     },
     onSuccess: () => {
       setMessageText("");
@@ -189,17 +200,6 @@ const Messages = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Get the last message for each contact to show in the sidebar
-  const getLastMessageByUser = (profileId: string) => {
-    const userMessages = messages.filter(
-      (message) => 
-        message.sender_id === profileId || 
-        message.recipient_id === profileId
-    );
-    
-    return userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
   };
 
   const handleUserSelect = (profile: Profile) => {

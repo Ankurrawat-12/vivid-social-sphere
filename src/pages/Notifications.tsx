@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,22 +7,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Profile } from "@/types/supabase";
+import { Notification } from "@/types/supabase";
 
-interface Notification {
-  id: string;
-  type: "like" | "comment" | "follow" | "message" | "mention";
-  created_at: string;
-  is_read: boolean;
-  source_user_id: string;
-  target_user_id: string;
-  post_id?: string;
-  message_id?: string;
-  content?: string;
-  source_user: Profile;
-}
-
-const Notifications = () => {
+const NotificationsPage = () => {
   const { user } = useAuth();
   const [notificationCount, setNotificationCount] = useState(0);
 
@@ -187,4 +173,4 @@ const Notifications = () => {
   );
 };
 
-export default Notifications;
+export default NotificationsPage;

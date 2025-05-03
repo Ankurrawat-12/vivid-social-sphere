@@ -9,7 +9,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid";
 
 interface UploadPostFormProps {
   onComplete: () => void;
@@ -46,7 +45,7 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
     try {
       // 1. Upload image to Supabase storage
       const fileExt = file.name.split(".").pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
       
       const { error: uploadError } = await supabase.storage
@@ -63,23 +62,28 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
       const imageUrl = publicUrlData.publicUrl;
       
       // 3. Create post record in database
-      const { error: postError } = await supabase
+      const { data: post, error: postError } = await supabase
         .from("posts")
         .insert({
           user_id: user.id,
           caption,
           image_url: imageUrl,
-        });
+        })
+        .select()
+        .single();
         
       if (postError) throw postError;
       
-      // 4. Invalidate posts query to refresh feed
+      // 4. Notify followers about the new post
+      // This would require a separate query to get followers, which we'll skip for now
+      
+      // 5. Invalidate posts query to refresh feed
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       
-      // 5. Show success message
+      // 6. Show success message
       toast.success("Post created successfully");
       
-      // 6. Close modal
+      // 7. Close modal
       onComplete();
     } catch (error) {
       console.error("Error uploading post:", error);

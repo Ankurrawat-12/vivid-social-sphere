@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   Home,
@@ -31,11 +31,62 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import UploadPostForm from "@/components/posts/UploadPostForm";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Navbar = () => {
   const { user, profile, signOut } = useAuth();
-  const [notifications, setNotifications] = useState(2);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  
+  // Fetch unread notifications count
+  const { data: notificationsCount = 0 } = useQuery({
+    queryKey: ["notificationsCount"],
+    queryFn: async () => {
+      if (!user) return 0;
+      
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("target_user_id", user.id)
+        .eq("is_read", false);
+        
+      if (error) {
+        console.error("Error fetching notifications count:", error);
+        return 0;
+      }
+      
+      return count || 0;
+    },
+    enabled: !!user,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+  
+  // Subscribe to real-time notifications
+  useEffect(() => {
+    if (!user) return;
+    
+    const channel = supabase
+      .channel("navbar_notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public", 
+          table: "notifications",
+          filter: `target_user_id=eq.${user.id}`,
+        },
+        () => {
+          // Invalidate notifications count query when a new notification arrives
+          // This will trigger a refetch
+          void queryClient.invalidateQueries({ queryKey: ["notificationsCount"] });
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b border-border z-50 px-4">
@@ -63,9 +114,9 @@ const Navbar = () => {
             </Button>
             <Link to="/notifications" className="nav-icon relative">
               <Bell />
-              {notifications > 0 && (
+              {notificationsCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-social-purple text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {notifications}
+                  {notificationsCount > 9 ? '9+' : notificationsCount}
                 </span>
               )}
             </Link>
