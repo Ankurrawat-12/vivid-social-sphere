@@ -1,6 +1,5 @@
 
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Profile } from "@/types/supabase";
@@ -16,8 +15,8 @@ import EmptyChat from "@/components/messages/EmptyChat";
 
 const Messages = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+  const [typingTimer, setTypingTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Get contacts data
   const { profiles, isLoadingProfiles } = useContacts();
@@ -26,7 +25,9 @@ const Messages = () => {
   const { 
     messages, 
     isLoadingMessages, 
-    sendMessageMutation 
+    sendMessageMutation,
+    updateTypingStatus,
+    isUserTyping
   } = useMessages(selectedUser);
 
   // Handle user selection from contacts
@@ -34,10 +35,45 @@ const Messages = () => {
     setSelectedUser(profile);
   };
 
-  // Handle send message
-  const handleSendMessage = (messageText: string) => {
-    sendMessageMutation.mutate(messageText);
+  // Handle input change for typing indicator
+  const handleInputChange = () => {
+    if (!selectedUser) return;
+    
+    updateTypingStatus(true);
+    
+    // Clear existing timer
+    if (typingTimer) {
+      clearTimeout(typingTimer);
+    }
+    
+    // Set a new timer to stop typing status after 2 seconds of inactivity
+    const timer = setTimeout(() => {
+      updateTypingStatus(false);
+    }, 2000);
+    
+    setTypingTimer(timer);
   };
+
+  // Handle send message
+  const handleSendMessage = (messageText: string, file?: File) => {
+    sendMessageMutation.mutate({ messageContent: messageText, file });
+    
+    // Clear typing status when message is sent
+    updateTypingStatus(false);
+    if (typingTimer) {
+      clearTimeout(typingTimer);
+      setTypingTimer(null);
+    }
+  };
+
+  // Clean up typing timer on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimer) {
+        clearTimeout(typingTimer);
+      }
+    };
+  }, [typingTimer]);
 
   return (
     <AppLayout>
@@ -57,19 +93,24 @@ const Messages = () => {
           {selectedUser ? (
             <>
               {/* Chat Header */}
-              <ChatHeader user={selectedUser} />
+              <ChatHeader 
+                user={selectedUser} 
+                isOnline={Math.random() > 0.5} // Mock online status - in a real app, you'd use presence
+              />
 
               {/* Messages List */}
               <MessagesList 
                 messages={messages} 
                 isLoading={isLoadingMessages} 
                 currentUserId={user?.id || ''}
+                isTyping={selectedUser ? isUserTyping(selectedUser.id) : false}
               />
 
               {/* Message Input */}
               <MessageInput 
                 onSendMessage={handleSendMessage}
                 isSubmitting={sendMessageMutation.isPending}
+                onInputChange={handleInputChange}
               />
             </>
           ) : (

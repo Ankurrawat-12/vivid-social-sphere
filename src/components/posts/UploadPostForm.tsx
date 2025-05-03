@@ -75,7 +75,25 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
       if (postError) throw postError;
       
       // 4. Notify followers about the new post
-      // This would require a separate query to get followers, which we'll skip for now
+      // Get all followers
+      const { data: followers } = await supabase
+        .from("follows")
+        .select("follower_id")
+        .eq("following_id", user.id);
+      
+      if (followers && followers.length > 0) {
+        // Create notifications for each follower
+        const notifications = followers.map((follower) => ({
+          type: "post",
+          source_user_id: user.id,
+          target_user_id: follower.follower_id,
+          post_id: post.id,
+          content: caption.substring(0, 50) + (caption.length > 50 ? "..." : "")
+        }));
+        
+        // Insert notifications
+        await supabase.from("notifications").insert(notifications);
+      }
       
       // 5. Invalidate posts query to refresh feed
       queryClient.invalidateQueries({ queryKey: ["posts"] });

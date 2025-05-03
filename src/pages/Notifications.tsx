@@ -27,7 +27,7 @@ const Notifications = () => {
         .from("notifications")
         .select(`
           *,
-          source_user:profiles!notifications_source_user_id_fkey(*)
+          source_user:source_user_id(*)
         `)
         .eq("target_user_id", user.id)
         .order("created_at", { ascending: false });
@@ -75,6 +75,7 @@ const Notifications = () => {
     switch (notification.type) {
       case "like":
       case "comment":
+      case "post":
         if (notification.post_id) {
           navigate(`/post/${notification.post_id}`);
         }
@@ -110,6 +111,8 @@ const Notifications = () => {
         return `@${username} sent you a message: "${notification.content}"`;
       case "mention":
         return `@${username} mentioned you in a post`;
+      case "post":
+        return `@${username} shared a new post: "${notification.content}"`;
       default:
         return "New notification";
     }
