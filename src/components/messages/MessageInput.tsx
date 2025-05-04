@@ -1,9 +1,10 @@
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Send, Paperclip, Mic, Image as ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { createBucketIfNotExists } from "@/integrations/supabase/client";
 
 interface MessageInputProps {
   onSendMessage: (text: string, file?: File) => void;
@@ -25,13 +26,23 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Ensure the messages bucket exists when component mounts
+  useEffect(() => {
+    createBucketIfNotExists('messages');
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!messageText.trim() && !mediaFile) || isSubmitting) return;
     
-    onSendMessage(messageText.trim(), mediaFile || undefined);
-    setMessageText("");
-    clearMedia();
+    try {
+      onSendMessage(messageText.trim(), mediaFile || undefined);
+      setMessageText("");
+      clearMedia();
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to send message. Please try again.");
+    }
   };
   
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {

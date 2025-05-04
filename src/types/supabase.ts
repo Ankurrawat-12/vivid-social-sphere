@@ -29,3 +29,10 @@ export type MessageWithProfile = Message & {
   sender: Profile;
   recipient: Profile;
 };
+
+export type ProfileWithCounts = Profile & {
+  posts_count: number;
+  followers_count: number;
+  following_count: number;
+  is_following?: boolean;
+};

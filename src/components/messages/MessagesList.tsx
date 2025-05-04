@@ -1,6 +1,7 @@
+
 import React, { useRef, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Check, CheckCheck } from "lucide-react";
+import { Check, CheckCheck, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MessageWithProfile } from "@/types/supabase";
 
@@ -68,8 +69,9 @@ const MessagesList: React.FC<MessagesListProps> = ({
             href={message.media_url} 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="text-sm text-blue-500 underline mb-2 block"
+            className="flex items-center text-sm text-blue-500 underline mb-2"
           >
+            <FileText className="h-4 w-4 mr-1" />
             Download attached file
           </a>
         );

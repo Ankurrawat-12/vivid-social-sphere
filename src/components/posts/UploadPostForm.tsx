@@ -1,12 +1,12 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Upload, Image } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, createBucketIfNotExists } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -21,6 +21,11 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Ensure the posts bucket exists when component mounts
+  useEffect(() => {
+    createBucketIfNotExists('posts');
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -46,6 +51,9 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
     
     setIsUploading(true);
     try {
+      // Ensure the posts bucket exists
+      await createBucketIfNotExists('posts');
+      
       // 1. Upload image to Supabase storage
       const fileExt = file.name.split(".").pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;

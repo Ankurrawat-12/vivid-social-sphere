@@ -9,6 +9,26 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+export const createBucketIfNotExists = async (bucketName: string) => {
+  try {
+    // Check if bucket exists first
+    const { data: buckets, error: getBucketsError } = await supabase.storage.listBuckets();
+    if (getBucketsError) throw getBucketsError;
+
+    // If bucket doesn't exist, create it
+    if (!buckets.some(bucket => bucket.name === bucketName)) {
+      const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB in bytes
+      });
+      if (createBucketError) throw createBucketError;
+      console.log(`Bucket '${bucketName}' created successfully`);
+    }
+  } catch (error) {
+    console.error(`Error with bucket '${bucketName}':`, error);
+  }
+};
+
 export const supabase = createClient<Database>(
   SUPABASE_URL, 
   SUPABASE_PUBLISHABLE_KEY,

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, createBucketIfNotExists } from "@/integrations/supabase/client";
 import { Profile, MessageWithProfile } from "@/types/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -10,6 +10,15 @@ export const useMessages = (selectedUser: Profile | null) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  
+  // Ensure storage buckets exist when the hook is initialized
+  useEffect(() => {
+    const initializeStorage = async () => {
+      await createBucketIfNotExists('messages');
+    };
+    
+    initializeStorage();
+  }, []);
   
   // Fetch messages between current user and selected user
   const { 
@@ -74,6 +83,9 @@ export const useMessages = (selectedUser: Profile | null) => {
       // Upload file if provided
       if (file) {
         try {
+          // Ensure the messages bucket exists
+          await createBucketIfNotExists('messages');
+          
           const fileExt = file.name.split(".").pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
           const filePath = `${user.id}/${selectedUser.id}/${fileName}`;
