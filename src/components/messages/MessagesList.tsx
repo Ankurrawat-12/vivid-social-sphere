@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Check, CheckCheck } from "lucide-react";

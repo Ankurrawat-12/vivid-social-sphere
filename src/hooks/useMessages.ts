@@ -66,7 +66,7 @@ export const useMessages = (selectedUser: Profile | null) => {
   // Send a new message
   const sendMessageMutation = useMutation({
     mutationFn: async ({ messageContent, file }: { messageContent: string, file?: File }) => {
-      if (!selectedUser || !user) throw new Error("Cannot send message");
+      if (!selectedUser || !user) throw new Error("Cannot send message: No selected user or not logged in");
       
       let media_url = null;
       let media_type = null;
@@ -89,24 +89,32 @@ export const useMessages = (selectedUser: Profile | null) => {
             media_type = "file";
           }
           
+          // Check file size first
+          if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            throw new Error("File is too large. Maximum size is 10MB.");
+          }
+          
           const { error: uploadError, data: uploadData } = await supabase.storage
             .from("messages")
             .upload(filePath, file);
             
           if (uploadError) {
             console.error("Error uploading file:", uploadError);
-            throw uploadError;
+            throw new Error(uploadError.message);
           }
           
           const { data: publicUrlData } = supabase.storage
             .from("messages")
             .getPublicUrl(filePath);
             
+          if (!publicUrlData || !publicUrlData.publicUrl) {
+            throw new Error("Failed to get public URL for uploaded file");
+          }
+          
           media_url = publicUrlData.publicUrl;
         } catch (error) {
           console.error("Error handling file upload:", error);
-          toast.error("Failed to upload media file");
-          throw error;
+          throw error; // Let the error handling middleware catch this
         }
       }
       
@@ -130,27 +138,32 @@ export const useMessages = (selectedUser: Profile | null) => {
         
       if (error) {
         console.error("Error sending message:", error);
-        throw error;
+        throw new Error(error.message);
       }
       
-      // Create notification for the recipient
-      await supabase
-        .from("notifications")
-        .insert({
-          type: "message",
-          source_user_id: user.id,
-          target_user_id: selectedUser.id,
-          message_id: data.id,
-          content: messageContent.substring(0, 50) + (messageContent.length > 50 ? "..." : "")
-        });
+      try {
+        // Create notification for the recipient
+        await supabase
+          .from("notifications")
+          .insert({
+            type: "message",
+            source_user_id: user.id,
+            target_user_id: selectedUser.id,
+            message_id: data.id,
+            content: messageContent.substring(0, 50) + (messageContent.length > 50 ? "..." : "")
+          });
+      } catch (notifyError) {
+        console.error("Error creating notification:", notifyError);
+        // Don't throw - message sent, notification is secondary
+      }
       
       return data as unknown as MessageWithProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["messages", selectedUser?.id] });
     },
-    onError: () => {
-      toast.error("Failed to send message. Please try again.");
+    onError: (error) => {
+      toast.error(`Failed to send message: ${error instanceof Error ? error.message : "Please try again"}`);
     },
   });
 

@@ -39,7 +39,10 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file || !user) return;
+    if (!file || !user) {
+      toast.error("Please select a file and ensure you're logged in");
+      return;
+    }
     
     setIsUploading(true);
     try {
@@ -48,17 +51,24 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
       
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from("posts")
         .upload(filePath, file);
         
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Error uploading file:", uploadError);
+        throw new Error(uploadError.message);
+      }
       
       // 2. Get public URL for the uploaded file
       const { data: publicUrlData } = supabase.storage
         .from("posts")
         .getPublicUrl(filePath);
         
+      if (!publicUrlData || !publicUrlData.publicUrl) {
+        throw new Error("Failed to get public URL for uploaded file");
+      }
+
       const imageUrl = publicUrlData.publicUrl;
       
       // 3. Create post record in database
@@ -72,27 +82,43 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
         .select()
         .single();
         
-      if (postError) throw postError;
+      if (postError) {
+        console.error("Error creating post:", postError);
+        throw new Error(postError.message);
+      }
       
       // 4. Notify followers about the new post
-      // Get all followers
-      const { data: followers } = await supabase
-        .from("follows")
-        .select("follower_id")
-        .eq("following_id", user.id);
-      
-      if (followers && followers.length > 0) {
-        // Create notifications for each follower
-        const notifications = followers.map((follower) => ({
-          type: "post",
-          source_user_id: user.id,
-          target_user_id: follower.follower_id,
-          post_id: post.id,
-          content: caption.substring(0, 50) + (caption.length > 50 ? "..." : "")
-        }));
+      try {
+        // Get all followers
+        const { data: followers, error: followersError } = await supabase
+          .from("follows")
+          .select("follower_id")
+          .eq("following_id", user.id);
         
-        // Insert notifications
-        await supabase.from("notifications").insert(notifications);
+        if (followersError) {
+          console.error("Error getting followers:", followersError);
+        } else if (followers && followers.length > 0) {
+          // Create notifications for each follower
+          const notifications = followers.map((follower) => ({
+            type: "post",
+            source_user_id: user.id,
+            target_user_id: follower.follower_id,
+            post_id: post.id,
+            content: caption.substring(0, 50) + (caption.length > 50 ? "..." : "")
+          }));
+          
+          // Insert notifications
+          const { error: notificationError } = await supabase
+            .from("notifications")
+            .insert(notifications);
+            
+          if (notificationError) {
+            console.error("Error creating notifications:", notificationError);
+          }
+        }
+      } catch (notifyError) {
+        console.error("Error in notification process:", notifyError);
+        // Don't throw here - post is created, notifications are secondary
       }
       
       // 5. Invalidate posts query to refresh feed
@@ -105,7 +131,7 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
       onComplete();
     } catch (error) {
       console.error("Error uploading post:", error);
-      toast.error("Failed to create post. Please try again.");
+      toast.error(`Failed to create post: ${error instanceof Error ? error.message : "Please try again"}`);
     } finally {
       setIsUploading(false);
     }

@@ -7,8 +7,8 @@ export type Comment = Database["public"]["Tables"]["comments"]["Row"];
 export type Like = Database["public"]["Tables"]["likes"]["Row"];
 export type Follow = Database["public"]["Tables"]["follows"]["Row"];
 export type Message = Database["public"]["Tables"]["messages"]["Row"] & {
-  media_url?: string;
-  media_type?: string;
+  media_url?: string | null;
+  media_type?: "image" | "video" | "audio" | "file" | null;
 };
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"] & {
   source_user: Profile;
