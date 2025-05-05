@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import EditProfileForm from "@/components/profile/EditProfileForm";
+import UserPostsGrid from "@/components/profile/UserPostsGrid";
 import { ProfileWithCounts } from "@/types/supabase";
 
 const Profile = () => {
@@ -268,16 +269,7 @@ const Profile = () => {
           </TabsList>
           
           <TabsContent value="posts" className="mt-6">
-            {/* TODO: Replace with actual user posts */}
-            <div className="grid grid-cols-3 gap-1">
-              {Array(6).fill(0).map((_, i) => (
-                <div key={i} className="aspect-square bg-muted relative">
-                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                    <MessageSquare className="h-6 w-6" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            {profileData && <UserPostsGrid userId={profileData.id} />}
           </TabsContent>
           
           <TabsContent value="saved" className="mt-6">
