@@ -1,182 +1,216 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { 
-  Home,
-  Search,
-  PlusSquare,
-  Heart,
-  MessageSquare,
-  User,
-  Bell,
-  Menu,
-  LogOut,
-  Upload
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/contexts/AuthContext";
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
-import UploadPostForm from "@/components/posts/UploadPostForm";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+} from '@/components/ui/dropdown-menu';
+import { Bell, Home, LogOut, Menu, MessageCircle, PlusSquare, Search, Settings, User } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import UploadPostForm from '../posts/UploadPostForm';
+import { supabase } from '@/integrations/supabase/client';
 
 const Navbar = () => {
-  const { user, profile, signOut } = useAuth();
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const queryClient = useQueryClient();
-  
-  // Fetch unread notifications count
-  const { data: notificationsCount = 0 } = useQuery({
-    queryKey: ["notificationsCount"],
-    queryFn: async () => {
-      if (!user) return 0;
-      
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("target_user_id", user.id)
-        .eq("is_read", false);
-        
-      if (error) {
-        console.error("Error fetching notifications count:", error);
-        return 0;
-      }
-      
-      return count || 0;
-    },
-    enabled: !!user,
-    refetchInterval: 30000, // Refetch every 30 seconds
-  });
-  
-  // Subscribe to real-time notifications
-  useEffect(() => {
-    if (!user) return;
-    
-    const channel = supabase
-      .channel("navbar_notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public", 
-          table: "notifications",
-          filter: `target_user_id=eq.${user.id}`,
-        },
-        () => {
-          // Invalidate notifications count query when a new notification arrives
-          // This will trigger a refetch
-          void queryClient.invalidateQueries({ queryKey: ["notificationsCount"] });
-        }
-      )
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, queryClient]);
+  const { user, profile, logout } = useAuth();
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    navigate(`/explore?q=${encodeURIComponent(searchQuery)}`);
+    setSearchQuery('');
+  };
+
+  const handleLogout = async () => {
+    await logout?.();
+    navigate('/auth');
+  };
+
+  // Handle mobile menu toggle
+  const toggleMobileMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  // Close mobile menu when a link is clicked
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b border-border z-50 px-4">
-      <div className="container flex items-center justify-between h-full max-w-6xl mx-auto">
-        <Link to="/" className="text-2xl font-bold text-social-purple">
-          VividSocial
+    <nav className="border-b py-2 bg-background sticky top-0 z-10 backdrop-blur-lg bg-opacity-90">
+      <div className="container max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
+        {/* Logo */}
+        <Link to="/" className="text-xl font-bold">
+          VividSphere
         </Link>
 
-        {/* Mobile Menu Toggle */}
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-6 w-6" />
-        </Button>
+        {/* Search - Hide on mobile */}
+        {!isMobile && (
+          <form onSubmit={handleSearch} className="w-full max-w-md mx-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </form>
+        )}
 
-        {/* Desktop Navigation */}
-        {user && (
-          <nav className="hidden md:flex items-center gap-6">
-            <Link to="/" className="nav-icon">
-              <Home />
-            </Link>
-            <Link to="/explore" className="nav-icon">
-              <Search />
-            </Link>
-            <Button variant="ghost" size="icon" onClick={() => setUploadDialogOpen(true)} className="nav-icon">
-              <Upload />
-            </Button>
-            <Link to="/notifications" className="nav-icon relative">
-              <Bell />
-              {notificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-social-purple text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {notificationsCount > 9 ? '9+' : notificationsCount}
-                </span>
-              )}
-            </Link>
-            <Link to="/messages" className="nav-icon">
-              <MessageSquare />
-            </Link>
+        {/* Nav Icons */}
+        {user ? (
+          <div className="flex items-center gap-1 md:gap-2">
+            {/* Desktop Navigation */}
+            {!isMobile && (
+              <>
+                <Link to="/">
+                  <Button variant="ghost" size="icon">
+                    <Home className="h-5 w-5" />
+                  </Button>
+                </Link>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="rounded-full p-0 h-8 w-8">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={profile?.avatar_url || ''} alt={profile?.username || ''} />
-                    <AvatarFallback>
-                      {profile?.username?.substring(0, 2).toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                <Link to="/messages">
+                  <Button variant="ghost" size="icon">
+                    <MessageCircle className="h-5 w-5" />
+                  </Button>
+                </Link>
+
+                <Button variant="ghost" size="icon" onClick={() => setIsUploadOpen(true)}>
+                  <PlusSquare className="h-5 w-5" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/profile" className="flex gap-2">
-                    <User className="h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/saved" className="flex gap-2">
-                    <Heart className="h-4 w-4" />
-                    Saved
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/notifications" className="flex gap-2">
-                    <Bell className="h-4 w-4" />
-                    Notifications
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut()} className="flex gap-2 cursor-pointer">
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </nav>
+
+                <Link to="/notifications">
+                  <Button variant="ghost" size="icon">
+                    <Bell className="h-5 w-5" />
+                  </Button>
+                </Link>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={profile?.avatar_url || ""} />
+                        <AvatarFallback>{profile?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <Link to={`/profile/${profile?.username}`}>
+                      <DropdownMenuItem className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </DropdownMenuItem>
+                    </Link>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="cursor-pointer" onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log Out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+
+            {/* Mobile Navigation */}
+            {isMobile && (
+              <>
+                <Button variant="ghost" size="icon" onClick={() => setIsUploadOpen(true)} className="relative z-20">
+                  <PlusSquare className="h-5 w-5" />
+                </Button>
+
+                <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative z-20">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-[80vw]">
+                    <SheetHeader className="mb-4">
+                      <SheetTitle>Menu</SheetTitle>
+                    </SheetHeader>
+                    
+                    {/* Mobile Search */}
+                    <form onSubmit={handleSearch} className="mb-4">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search..."
+                          className="pl-8"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                    </form>
+                    
+                    {/* Mobile Menu Items */}
+                    <div className="space-y-3">
+                      <div onClick={() => { navigate('/'); closeMenu(); }} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md">
+                        <Home className="h-5 w-5" />
+                        <span>Home</span>
+                      </div>
+                      
+                      <div onClick={() => { navigate('/profile/' + profile?.username); closeMenu(); }} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md">
+                        <User className="h-5 w-5" />
+                        <span>Profile</span>
+                      </div>
+                      
+                      <div onClick={() => { navigate('/messages'); closeMenu(); }} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md">
+                        <MessageCircle className="h-5 w-5" />
+                        <span>Messages</span>
+                      </div>
+                      
+                      <div onClick={() => { navigate('/notifications'); closeMenu(); }} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md">
+                        <Bell className="h-5 w-5" />
+                        <span>Notifications</span>
+                      </div>
+                      
+                      <div onClick={() => { setIsUploadOpen(true); closeMenu(); }} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md">
+                        <PlusSquare className="h-5 w-5" />
+                        <span>Create Post</span>
+                      </div>
+                      
+                      <div onClick={handleLogout} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md text-destructive">
+                        <LogOut className="h-5 w-5" />
+                        <span>Log Out</span>
+                      </div>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </>
+            )}
+          </div>
+        ) : (
+          <div>
+            <Link to="/auth">
+              <Button>Sign In</Button>
+            </Link>
+          </div>
         )}
       </div>
 
-      {/* Upload Post Dialog */}
-      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+      {/* Upload post modal */}
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Upload Post</DialogTitle>
-          </DialogHeader>
-          <UploadPostForm onComplete={() => setUploadDialogOpen(false)} />
+          <DialogTitle>Create New Post</DialogTitle>
+          <UploadPostForm onSuccess={() => setIsUploadOpen(false)} />
         </DialogContent>
       </Dialog>
-    </header>
+    </nav>
   );
 };
 

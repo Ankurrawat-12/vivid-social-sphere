@@ -10,9 +10,9 @@ import { useAuth } from "@/contexts/AuthContext";
 const PostsList = () => {
   const { user } = useAuth();
 
-  // Define the fetch function with explicit return type to prevent deep type instantiation
-  const fetchPosts = async (): Promise<PostWithProfile[]> => {
-    if (!user) return [];
+  // Define the fetch function with simplified return type to prevent deep type instantiation
+  const fetchPosts = async () => {
+    if (!user) return [] as PostWithProfile[];
 
     // First fetch users that the current user follows
     const { data: followsData } = await supabase

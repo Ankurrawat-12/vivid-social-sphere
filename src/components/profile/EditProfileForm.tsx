@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,8 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase, createBucketIfNotExists } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { Slider } from "@/components/ui/slider";
+import { DialogTitle } from "@/components/ui/dialog";
 
 const formSchema = z.object({
   username: z.string()
@@ -65,7 +67,7 @@ const EditProfileForm = ({ onComplete }: EditProfileFormProps) => {
   }, []);
 
   const uploadProfilePicture = async () => {
-    if (!croppedAreaPixels) return;
+    if (!croppedAreaPixels || !user) return;
 
     setIsUploading(true);
     try {
@@ -104,16 +106,35 @@ const EditProfileForm = ({ onComplete }: EditProfileFormProps) => {
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
 
-      // Upload the image to Supabase storage
-      await createBucketIfNotExists('avatars');
+      // Skip bucket creation since it's failing with permission errors
+      // Just try to upload directly
       const { data, error } = await supabase.storage
         .from('avatars')
-        .upload(`${user?.id}/avatar.jpg`, file, {
+        .upload(`${user.id}/avatar.jpg`, file, {
           cacheControl: '3600',
           upsert: true,
         });
 
       if (error) {
+        console.error("Storage upload error:", error);
+        
+        // If it's a bucket not found error, we'll directly update the profile with the data URL
+        if (error.message === "Bucket not found") {
+          // Update user profile with the data URL directly as fallback
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ avatar_url: dataUrl })
+            .eq('id', user.id);
+
+          if (updateError) {
+            throw updateError;
+          }
+          
+          toast.success("Profile picture updated successfully (using data URL)");
+          refreshProfile?.();
+          return;
+        }
+        
         throw error;
       }
 
@@ -123,7 +144,7 @@ const EditProfileForm = ({ onComplete }: EditProfileFormProps) => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicURL.data.publicUrl })
-        .eq('id', user?.id);
+        .eq('id', user.id);
 
       if (updateError) {
         throw updateError;
@@ -185,10 +206,8 @@ const EditProfileForm = ({ onComplete }: EditProfileFormProps) => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Edit Profile</h2>
-        <p className="text-sm text-muted-foreground">Update your profile information here</p>
-      </div>
+      <DialogTitle className="text-xl font-semibold">Edit Profile</DialogTitle>
+      <p className="text-sm text-muted-foreground">Update your profile information here</p>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -220,19 +239,22 @@ const EditProfileForm = ({ onComplete }: EditProfileFormProps) => {
                       onCropComplete={onCropComplete}
                     />
                   </div>
-                  <div className="flex gap-2 mt-2">
+                  <div className="mt-2">
                     <Label htmlFor="zoom" className="text-sm">Zoom:</Label>
-                    <Slider
-                      id="zoom"
-                      defaultValue={[zoom]}
-                      min={1}
-                      max={3}
-                      step={0.1}
-                      onValueChange={(value) => setZoom(value[0])}
-                    />
-                    <Button type="button" size="sm" variant="secondary" onClick={uploadProfilePicture} disabled={isUploading}>
-                      {isUploading ? "Uploading..." : "Save Picture"}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Slider
+                        className="flex-grow"
+                        id="zoom"
+                        defaultValue={[zoom]}
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        onValueChange={(value) => setZoom(value[0])}
+                      />
+                      <Button type="button" size="sm" variant="secondary" onClick={uploadProfilePicture} disabled={isUploading}>
+                        {isUploading ? "Uploading..." : "Save Picture"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

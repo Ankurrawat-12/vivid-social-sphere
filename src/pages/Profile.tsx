@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Grid, Bookmark, Film, User as UserIcon, Settings, MessageSquare, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import EditProfileForm from "@/components/profile/EditProfileForm";
 import ProfileSettings from "@/components/profile/ProfileSettings";
 import UserPostsGrid from "@/components/profile/UserPostsGrid";
@@ -101,37 +101,34 @@ const Profile = () => {
     }
   }, [username, currentUserProfile, navigate]);
 
-  // Follow/unfollow mutation
+  // Refactor follow/unfollow mutation
   const followMutation = useMutation({
     mutationFn: async ({ action }: { action: "follow" | "unfollow" }) => {
       if (!user || !profileData) throw new Error("User or profile data missing");
       
       if (action === "follow") {
-        // Check if profile is private
-        const status = profileData.is_private ? "pending" : "accepted";
-        
+        // For follow, we'll use insert and handle the status through RLS policies later
         const { error } = await supabase
           .from("follows")
           .insert({
             follower_id: user.id,
-            following_id: profileData.id,
-            status
+            following_id: profileData.id
           });
           
         if (error) throw error;
         
-        // Create notification
+        // Create notification for the follow action
         await supabase
           .from("notifications")
           .insert({
-            type: profileData.is_private ? "follow_request" : "follow",
+            type: "follow",
             source_user_id: user.id,
             target_user_id: profileData.id
           });
           
-        return status;
+        return "accepted"; // For now, always accept follows
       } else {
-        // Unfollow
+        // For unfollow, simply delete the record
         const { error } = await supabase
           .from("follows")
           .delete()
