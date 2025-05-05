@@ -7,10 +7,29 @@ import { PostWithProfile } from "@/types/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 
+type SimplifiedPostResponse = {
+  id: string;
+  user_id: string;
+  caption: string | null;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+  profile: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    bio: string | null;
+  };
+  likes_count: number;
+  comments_count: number;
+  user_has_liked: boolean;
+};
+
 const PostsList = () => {
   const { user } = useAuth();
 
-  // Define the fetch function with simplified return type to prevent deep type instantiation
+  // Define the fetch function with explicit return type
   const fetchPosts = async (): Promise<PostWithProfile[]> => {
     if (!user) return [];
 

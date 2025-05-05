@@ -142,7 +142,7 @@ const Profile = () => {
       }
     },
     onSuccess: (status) => {
-      setFollowStatus(status);
+      setFollowStatus(status as "none" | "pending" | "accepted");
       queryClient.invalidateQueries({ queryKey: ["profile", username] });
       
       if (status === "pending") {
@@ -165,7 +165,7 @@ const Profile = () => {
   const isPrivateAccount = profileData?.is_private;
   const canViewContent = isOwnProfile || (isPrivateAccount ? isFollowing : true);
 
-  // Fix comparison to use correct types
+  // Fix type comparison to handle all possible follow statuses
   const handleFollowToggle = async () => {
     if (isFollowing || isRequestPending) {
       followMutation.mutate({ action: "unfollow" });
