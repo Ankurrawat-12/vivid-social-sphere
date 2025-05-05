@@ -46,6 +46,11 @@ export interface Message {
   created_at: string;
 }
 
+export interface MessageWithProfile extends Message {
+  sender: Profile;
+  recipient: Profile;
+}
+
 export interface Comment {
   id: string;
   post_id: string;
@@ -65,6 +70,7 @@ export interface Notification {
   content?: string | null;
   is_read: boolean;
   created_at: string;
+  source_user?: Profile;  // Add this field to match what's being used
 }
 
 export interface Follow {

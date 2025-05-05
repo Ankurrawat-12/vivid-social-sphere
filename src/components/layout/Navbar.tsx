@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +19,7 @@ import UploadPostForm from '../posts/UploadPostForm';
 import { supabase } from '@/integrations/supabase/client';
 
 const Navbar = () => {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, signOut } = useAuth(); // Use signOut instead of logout
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
@@ -35,7 +34,7 @@ const Navbar = () => {
   };
 
   const handleLogout = async () => {
-    await logout?.();
+    await signOut?.(); // Use signOut
     navigate('/auth');
   };
 

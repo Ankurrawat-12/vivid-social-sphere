@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -164,6 +165,7 @@ const Profile = () => {
   const isPrivateAccount = profileData?.is_private;
   const canViewContent = isOwnProfile || (isPrivateAccount ? isFollowing : true);
 
+  // Fix comparison to use correct types
   const handleFollowToggle = async () => {
     if (isFollowing || isRequestPending) {
       followMutation.mutate({ action: "unfollow" });

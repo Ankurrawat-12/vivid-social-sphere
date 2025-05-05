@@ -13,6 +13,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, username: string) => Promise<void>;
   signOut: () => Promise<void>;
+  logout: () => Promise<void>; // Add this alias for signOut
   loading: boolean;
   refreshProfile: () => Promise<void>;
 }
@@ -147,7 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profile, 
       signIn, 
       signUp, 
-      signOut, 
+      signOut,
+      logout: signOut, // Add logout as an alias for signOut 
       loading,
       refreshProfile 
     }}>

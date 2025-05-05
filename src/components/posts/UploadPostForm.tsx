@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +10,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface UploadPostFormProps {
-  onComplete: () => void;
+  onSuccess: () => void;  // Change onComplete to onSuccess
 }
 
-const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
+const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [caption, setCaption] = useState("");
@@ -136,7 +135,7 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onComplete }) => {
       toast.success("Post created successfully");
       
       // 7. Close modal
-      onComplete();
+      onSuccess();
     } catch (error) {
       console.error("Error uploading post:", error);
       toast.error(`Failed to create post: ${error instanceof Error ? error.message : "Please try again"}`);

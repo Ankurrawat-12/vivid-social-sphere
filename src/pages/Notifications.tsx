@@ -10,7 +10,11 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Notification } from "@/types/supabase";
+import { Notification, Profile } from "@/types/supabase";
+
+interface NotificationWithUser extends Notification {
+  source_user: Profile;
+}
 
 const Notifications = () => {
   const { user } = useAuth();
@@ -38,7 +42,7 @@ const Notifications = () => {
         throw error;
       }
 
-      return data as unknown as Notification[];
+      return data as unknown as NotificationWithUser[];
     },
     enabled: !!user,
   });
@@ -97,7 +101,7 @@ const Notifications = () => {
   };
 
   // Get notification icon and text based on type
-  const getNotificationContent = (notification: Notification) => {
+  const getNotificationContent = (notification: NotificationWithUser) => {
     const username = notification.source_user.username;
     
     switch (notification.type) {
@@ -160,7 +164,7 @@ const Notifications = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {notifications.map((notification) => (
+            {notifications.map((notification: NotificationWithUser) => (
               <Card
                 key={notification.id}
                 className={`cursor-pointer transition-colors ${
