@@ -165,7 +165,7 @@ const Profile = () => {
   const isPrivateAccount = profileData?.is_private;
   const canViewContent = isOwnProfile || (isPrivateAccount ? isFollowing : true);
 
-  // Fix type comparison to handle all possible follow statuses
+  // Fix the comparison to correctly handle all follow statuses
   const handleFollowToggle = async () => {
     if (isFollowing || isRequestPending) {
       followMutation.mutate({ action: "unfollow" });

@@ -7,7 +7,8 @@ import { PostWithProfile } from "@/types/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 
-type SimplifiedPostResponse = {
+// Define a simpler interface for the post response to avoid deep type instantiation
+interface SimplifiedPost {
   id: string;
   user_id: string;
   caption: string | null;
@@ -24,13 +25,13 @@ type SimplifiedPostResponse = {
   likes_count: number;
   comments_count: number;
   user_has_liked: boolean;
-};
+}
 
 const PostsList = () => {
   const { user } = useAuth();
 
-  // Define the fetch function with explicit return type
-  const fetchPosts = async (): Promise<PostWithProfile[]> => {
+  // Define the fetch function with a concrete return type to avoid deep instantiation
+  const fetchPosts = async (): Promise<SimplifiedPost[]> => {
     if (!user) return [];
 
     // First fetch users that the current user follows
@@ -87,13 +88,13 @@ const PostsList = () => {
         })
       );
       
-      return postsWithLikeStatus as PostWithProfile[];
+      return postsWithLikeStatus as SimplifiedPost[];
     }
 
     return transformedData.map(post => ({
       ...post,
       user_has_liked: false
-    })) as PostWithProfile[];
+    })) as SimplifiedPost[];
   };
 
   const { data: posts, isLoading, isError, error } = useQuery({
