@@ -67,13 +67,13 @@ const PostsList = () => {
         })
       );
       
-      return postsWithLikeStatus as unknown as PostWithProfile[];
+      return postsWithLikeStatus as PostWithProfile[];
     }
 
     return transformedData.map(post => ({
       ...post,
       user_has_liked: false
-    })) as unknown as PostWithProfile[];
+    })) as PostWithProfile[];
   };
 
   const { data: posts, isLoading, isError, error } = useQuery({
