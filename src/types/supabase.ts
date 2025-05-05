@@ -58,6 +58,7 @@ export interface Comment {
   content: string;
   created_at: string;
   updated_at: string;
+  profile?: Profile;  // Include the user profile for displaying in comments
 }
 
 export interface Notification {
@@ -70,7 +71,7 @@ export interface Notification {
   content?: string | null;
   is_read: boolean;
   created_at: string;
-  source_user?: Profile;  // Add this field to match what's being used
+  source_user?: Profile;
 }
 
 export interface Follow {
@@ -79,4 +80,15 @@ export interface Follow {
   following_id: string;
   status: "pending" | "accepted";
   created_at: string;
+}
+
+export interface Story {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: "image" | "video";
+  created_at: string;
+  expires_at: string;
+  profile?: Profile;
+  viewed_by_user?: boolean;
 }

@@ -8,8 +8,8 @@ import { currentUser } from "@/data/mock-data";
 
 const StoriesBar = () => {
   return (
-    <div className="py-4 overflow-x-auto">
-      <div className="flex gap-4">
+    <div className="py-4 w-full overflow-x-auto scrollbar-hide">
+      <div className="flex gap-4 max-w-lg mx-auto px-2">
         {/* Create Story */}
         <div className="flex flex-col items-center gap-1 min-w-[64px]">
           <div className="relative">

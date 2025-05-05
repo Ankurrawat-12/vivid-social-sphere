@@ -15,6 +15,8 @@ interface ContactListProps {
   isLoadingProfiles: boolean;
   onSelectUser: (profile: Profile) => void;
   currentUserId: string;
+  isMobile?: boolean;
+  showInMobile?: boolean;
 }
 
 const ContactList: React.FC<ContactListProps> = ({
@@ -24,6 +26,8 @@ const ContactList: React.FC<ContactListProps> = ({
   isLoadingProfiles,
   onSelectUser,
   currentUserId,
+  isMobile = false,
+  showInMobile = true,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -33,8 +37,17 @@ const ContactList: React.FC<ContactListProps> = ({
     profile.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const contactListClasses = cn(
+    "flex flex-col border-r border-border",
+    {
+      "w-full": isMobile && showInMobile,
+      "hidden md:flex md:w-1/3 lg:w-1/4": !isMobile && !showInMobile,
+      "md:flex md:w-1/3 lg:w-1/4": !isMobile || !showInMobile
+    }
+  );
+
   return (
-    <div className="hidden md:flex md:w-1/3 lg:w-1/4 flex-col border-r border-border">
+    <div className={contactListClasses}>
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-medium text-lg">Messages</h2>

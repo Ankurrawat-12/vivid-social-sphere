@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { ProfileWithCounts } from "@/types/supabase";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Grid, Bookmark, Film, User as UserIcon, Settings, MessageSquare, Lock } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
-import EditProfileForm from "@/components/profile/EditProfileForm";
-import ProfileSettings from "@/components/profile/ProfileSettings";
-import UserPostsGrid from "@/components/profile/UserPostsGrid";
-import { ProfileWithCounts } from "@/types/supabase";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Profile = () => {

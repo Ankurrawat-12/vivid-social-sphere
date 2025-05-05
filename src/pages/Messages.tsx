@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Profile } from "@/types/supabase";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Import custom hooks and components
 import { useContacts } from "@/hooks/useContacts";
@@ -17,6 +18,8 @@ const Messages = () => {
   const { user } = useAuth();
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [typingTimer, setTypingTimer] = useState<NodeJS.Timeout | null>(null);
+  const isMobile = useIsMobile();
+  const [showChat, setShowChat] = useState(false);
 
   // Get contacts data
   const { profiles, isLoadingProfiles } = useContacts();
@@ -33,6 +36,16 @@ const Messages = () => {
   // Handle user selection from contacts
   const handleUserSelect = (profile: Profile) => {
     setSelectedUser(profile);
+    if (isMobile) {
+      setShowChat(true);
+    }
+  };
+
+  // Handle back button for mobile view
+  const handleBackToList = () => {
+    if (isMobile) {
+      setShowChat(false);
+    }
   };
 
   // Handle input change for typing indicator
@@ -86,16 +99,19 @@ const Messages = () => {
           isLoadingProfiles={isLoadingProfiles}
           onSelectUser={handleUserSelect}
           currentUserId={user?.id || ''}
+          isMobile={isMobile}
+          showInMobile={!showChat || !isMobile}
         />
 
         {/* Chat */}
-        <div className="flex-1 flex flex-col">
+        <div className={`flex-1 flex flex-col ${isMobile && !showChat ? 'hidden' : 'flex'}`}>
           {selectedUser ? (
             <>
               {/* Chat Header */}
               <ChatHeader 
                 user={selectedUser} 
                 isOnline={Math.random() > 0.5} // Mock online status - in a real app, you'd use presence
+                onBackClick={isMobile ? handleBackToList : undefined}
               />
 
               {/* Messages List */}
