@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,13 +87,13 @@ const PostsList = () => {
         })
       );
       
-      return postsWithLikeStatus as SimplifiedPost[];
+      return postsWithLikeStatus;
     }
 
     return transformedData.map(post => ({
       ...post,
       user_has_liked: false
-    })) as SimplifiedPost[];
+    }));
   };
 
   const { data: posts, isLoading, isError, error } = useQuery({

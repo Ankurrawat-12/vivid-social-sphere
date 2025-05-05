@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -165,9 +164,9 @@ const Profile = () => {
   const isPrivateAccount = profileData?.is_private;
   const canViewContent = isOwnProfile || (isPrivateAccount ? isFollowing : true);
 
-  // Fix the comparison to correctly handle all follow statuses
+  // Fix the follow status check in the component
   const handleFollowToggle = async () => {
-    if (isFollowing || isRequestPending) {
+    if (followStatus === "accepted" || followStatus === "pending") {
       followMutation.mutate({ action: "unfollow" });
     } else {
       followMutation.mutate({ action: "follow" });
