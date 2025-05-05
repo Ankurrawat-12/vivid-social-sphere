@@ -5,10 +5,27 @@ import { supabase } from "@/integrations/supabase/client";
 import PostCard from "./PostCard";
 import { PostWithProfile } from "@/types/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PostsList = () => {
+  const { user } = useAuth();
+
   const fetchPosts = async (): Promise<PostWithProfile[]> => {
-    // Get posts with author profile, like count, and comment count
+    if (!user) return [];
+
+    // First fetch users that the current user follows
+    const { data: followsData } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', user.id)
+      .eq('status', 'accepted');
+    
+    const followingIds = followsData?.map(follow => follow.following_id) || [];
+    
+    // Add the user's own ID to see their posts too
+    followingIds.push(user.id);
+    
+    // Get posts from followed users
     const { data, error } = await supabase
       .from('posts')
       .select(`
@@ -17,6 +34,7 @@ const PostsList = () => {
         likes_count:likes(count),
         comments_count:comments(count)
       `)
+      .in('user_id', followingIds)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -32,16 +50,14 @@ const PostsList = () => {
     }));
 
     // Check if the user has liked each post
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    
-    if (userId) {
+    if (user.id) {
       const postsWithLikeStatus = await Promise.all(
         transformedData.map(async (post) => {
           const { data: likeData } = await supabase
             .from('likes')
             .select('*')
             .eq('post_id', post.id)
-            .eq('user_id', userId)
+            .eq('user_id', user.id)
             .single();
           
           return {
@@ -61,8 +77,9 @@ const PostsList = () => {
   };
 
   const { data: posts, isLoading, isError, error } = useQuery({
-    queryKey: ['posts'],
-    queryFn: fetchPosts
+    queryKey: ['posts', user?.id],
+    queryFn: fetchPosts,
+    enabled: !!user
   });
 
   if (isLoading) {

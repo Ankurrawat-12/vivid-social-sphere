@@ -1,11 +1,15 @@
 
 import { Database } from "@/integrations/supabase/types";
 
-export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
+  is_private?: boolean;
+};
 export type Post = Database["public"]["Tables"]["posts"]["Row"];
 export type Comment = Database["public"]["Tables"]["comments"]["Row"];
 export type Like = Database["public"]["Tables"]["likes"]["Row"];
-export type Follow = Database["public"]["Tables"]["follows"]["Row"];
+export type Follow = Database["public"]["Tables"]["follows"]["Row"] & {
+  status?: "pending" | "accepted" | "rejected";
+};
 export type Message = Database["public"]["Tables"]["messages"]["Row"] & {
   media_url?: string | null;
   media_type?: "image" | "video" | "audio" | "file" | null;
@@ -35,4 +39,5 @@ export type ProfileWithCounts = Profile & {
   followers_count: number;
   following_count: number;
   is_following?: boolean;
+  follow_status?: "none" | "pending" | "accepted";
 };

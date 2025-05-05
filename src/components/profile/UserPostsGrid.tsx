@@ -1,20 +1,34 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { MessageSquare, Image as ImageIcon } from "lucide-react";
-import { PostWithProfile } from "@/types/supabase";
+import { MessageSquare, Image as ImageIcon, Lock } from "lucide-react";
+import { PostWithProfile, ProfileWithCounts } from "@/types/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserPostsGridProps {
   userId: string;
+  profile?: ProfileWithCounts;
 }
 
-const UserPostsGrid = ({ userId }: UserPostsGridProps) => {
+const UserPostsGrid = ({ userId, profile }: UserPostsGridProps) => {
+  const { user } = useAuth();
+  const isMobile = useIsMobile();
+  
+  // Check if this is a private profile and the user doesn't have access
+  const isPrivateAndNotAccessible = profile?.is_private && 
+    profile?.follow_status !== 'accepted' && 
+    user?.id !== userId;
+
   const { data: posts, isLoading } = useQuery({
-    queryKey: ["userPosts", userId],
+    queryKey: ["userPosts", userId, profile?.is_private],
     queryFn: async () => {
+      // Don't fetch posts if this is a private profile and user doesn't have access
+      if (isPrivateAndNotAccessible) return [];
+
       const { data, error } = await supabase
         .from("posts")
         .select("*")
@@ -25,15 +39,27 @@ const UserPostsGrid = ({ userId }: UserPostsGridProps) => {
       
       return data as PostWithProfile[];
     },
-    enabled: !!userId
+    enabled: !!userId && !isPrivateAndNotAccessible
   });
 
   if (isLoading) {
+    const gridCols = isMobile ? "grid-cols-3" : "grid-cols-3";
+    
     return (
-      <div className="grid grid-cols-3 gap-1">
+      <div className={`grid ${gridCols} gap-1 md:gap-4`}>
         {Array(6).fill(0).map((_, i) => (
           <Skeleton key={i} className="aspect-square w-full" />
         ))}
+      </div>
+    );
+  }
+
+  if (isPrivateAndNotAccessible) {
+    return (
+      <div className="h-60 flex flex-col items-center justify-center text-social-text-secondary space-y-4">
+        <Lock className="h-12 w-12 opacity-50" />
+        <p className="text-center">This account is private</p>
+        <p className="text-center text-sm">Follow this account to see their posts</p>
       </div>
     );
   }
@@ -46,8 +72,10 @@ const UserPostsGrid = ({ userId }: UserPostsGridProps) => {
     );
   }
 
+  const gridCols = isMobile ? "grid-cols-3" : "grid-cols-3";
+
   return (
-    <div className="grid grid-cols-3 gap-1">
+    <div className={`grid ${gridCols} gap-1 md:gap-4`}>
       {posts.map((post) => (
         <div key={post.id} className="relative cursor-pointer group">
           <AspectRatio ratio={1}>
