@@ -83,8 +83,8 @@ const StoriesBar = () => {
           <div className="flex flex-col items-center gap-1 min-w-[64px]" onClick={handleCreateStoryClick}>
             <div className="relative cursor-pointer">
               <Avatar className="h-16 w-16 border border-border">
-                {/* Use profile picture from user object if available, fallback to mock data */}
-                <img src={user?.profilePicture || currentUser.profilePicture} alt="Your story" className="object-cover" />
+                {/* Fix: Use profile?.avatar_url instead of user?.profilePicture */}
+                <img src={user?.profile?.avatar_url || currentUser.profilePicture} alt="Your story" className="object-cover" />
               </Avatar>
               <div className="absolute bottom-0 right-0 bg-social-purple rounded-full p-1">
                 <Plus className="h-3 w-3 text-white" />
