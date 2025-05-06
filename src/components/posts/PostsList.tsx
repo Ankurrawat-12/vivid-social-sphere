@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,7 @@ import PostCard from "./PostCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { Post } from "@/types";
+import { PostWithProfile } from "@/types/supabase";
 
 // Define a simpler interface just for the component
 interface PostWithDetails {
@@ -95,7 +97,8 @@ const PostsList = () => {
     }));
   };
 
-  const { data: posts, isLoading, isError, error } = useQuery({
+  // Fix for the deep type instantiation by providing explicit type parameter
+  const { data: posts, isLoading, isError, error } = useQuery<PostWithDetails[]>({
     queryKey: ['posts', user?.id],
     queryFn: fetchPosts,
     enabled: !!user

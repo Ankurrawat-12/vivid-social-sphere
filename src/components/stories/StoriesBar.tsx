@@ -83,6 +83,7 @@ const StoriesBar = () => {
           <div className="flex flex-col items-center gap-1 min-w-[64px]" onClick={handleCreateStoryClick}>
             <div className="relative cursor-pointer">
               <Avatar className="h-16 w-16 border border-border">
+                {/* Fix: Using profilePicture instead of avatar_url for the User type */}
                 <img src={user?.avatar_url || currentUser.profilePicture} alt="Your story" className="object-cover" />
               </Avatar>
               <div className="absolute bottom-0 right-0 bg-social-purple rounded-full p-1">
