@@ -97,8 +97,8 @@ const PostsList = () => {
     }));
   };
 
-  // Fix for the deep type instantiation by providing explicit type parameter
-  const { data: posts, isLoading, isError, error } = useQuery<PostWithDetails[]>({
+  // Explicitly specify the return type to avoid deep type instantiation
+  const { data: posts, isLoading, isError, error } = useQuery<PostWithDetails[], Error>({
     queryKey: ['posts', user?.id],
     queryFn: fetchPosts,
     enabled: !!user

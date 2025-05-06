@@ -16,6 +16,9 @@ import UserPostsGrid from "@/components/profile/UserPostsGrid";
 import EditProfileForm from "@/components/profile/EditProfileForm";
 import ProfileSettings from "@/components/profile/ProfileSettings";
 
+// Define a proper type for follow status
+type FollowStatus = "none" | "pending" | "accepted";
+
 const Profile = () => {
   const { username } = useParams<{ username?: string }>();
   const { user, profile: currentUserProfile } = useAuth();
@@ -24,7 +27,7 @@ const Profile = () => {
   const isMobile = useIsMobile();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [followStatus, setFollowStatus] = useState<"none" | "pending" | "accepted">("none");
+  const [followStatus, setFollowStatus] = useState<FollowStatus>("none");
 
   const { data: profileData, isLoading } = useQuery({
     queryKey: ["profile", username],
