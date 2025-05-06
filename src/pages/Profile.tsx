@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Grid, Bookmark, Film, User as UserIcon, Settings, MessageSquare, Lock } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import UserPostsGrid from "@/components/profile/UserPostsGrid";
+import EditProfileForm from "@/components/profile/EditProfileForm";
+import ProfileSettings from "@/components/profile/ProfileSettings";
 
 const Profile = () => {
   const { username } = useParams<{ username?: string }>();

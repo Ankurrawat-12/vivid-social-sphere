@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { Profile } from "@/types/supabase";
@@ -16,13 +17,25 @@ import EmptyChat from "@/components/messages/EmptyChat";
 
 const Messages = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [typingTimer, setTypingTimer] = useState<NodeJS.Timeout | null>(null);
   const isMobile = useIsMobile();
   const [showChat, setShowChat] = useState(false);
 
-  // Get contacts data
+  // Get profiles data
   const { profiles, isLoadingProfiles } = useContacts();
+  
+  // Initialize user from navigation state if available
+  useEffect(() => {
+    if (location.state?.selectedUser) {
+      setSelectedUser(location.state.selectedUser);
+      if (isMobile) {
+        setShowChat(true);
+      }
+    }
+  }, [location.state, isMobile]);
 
   // Get messages data and message-related operations
   const { 
@@ -39,6 +52,12 @@ const Messages = () => {
     if (isMobile) {
       setShowChat(true);
     }
+    
+    // Update URL without page reload
+    navigate('/messages', { 
+      state: { selectedUser: profile },
+      replace: true 
+    });
   };
 
   // Handle back button for mobile view

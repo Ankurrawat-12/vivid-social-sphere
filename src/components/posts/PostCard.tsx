@@ -10,6 +10,8 @@ import { Post } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import CommentSection from "./CommentSection";
+import SharePostModal from "./SharePostModal";
 
 interface PostCardProps {
   post: Post;
@@ -19,6 +21,8 @@ const PostCard = ({ post }: PostCardProps) => {
   const [liked, setLiked] = useState(post.isLiked);
   const [saved, setSaved] = useState(post.isSaved);
   const [likesCount, setLikesCount] = useState(post.likes);
+  const [showComments, setShowComments] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const { user } = useAuth();
 
   const handleLike = async () => {
@@ -55,6 +59,18 @@ const PostCard = ({ post }: PostCardProps) => {
         return;
       }
       
+      // Create notification for post owner if the liker is not the post owner
+      if (user.id !== post.userId) {
+        await supabase
+          .from('notifications')
+          .insert({
+            type: 'like',
+            source_user_id: user.id,
+            target_user_id: post.userId,
+            post_id: post.id
+          });
+      }
+      
       setLikesCount(likesCount + 1);
       setLiked(true);
     }
@@ -62,97 +78,128 @@ const PostCard = ({ post }: PostCardProps) => {
 
   const handleSave = () => {
     setSaved(!saved);
+    toast(saved ? 'Post removed from saved items' : 'Post saved to your profile');
+  };
+
+  const handleCommentClick = () => {
+    setShowComments(!showComments);
+  };
+
+  const handleShareClick = () => {
+    setIsShareModalOpen(true);
   };
 
   return (
-    <div className="bg-background border border-border rounded-md mb-6 animate-fade-in">
-      {/* Post Header */}
-      <div className="flex items-center justify-between p-3">
-        <Link to={`/profile/${post.user.username}`} className="flex items-center gap-2">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={post.user.profilePicture} alt={post.user.username} />
-            <AvatarFallback>{post.user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">
-              {post.user.username}
-              {post.user.isVerified && (
-                <span className="inline-block ml-1 text-social-purple">✓</span>
-              )}
-            </span>
-          </div>
-        </Link>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreHorizontal className="h-5 w-5" />
-        </Button>
-      </div>
+    <>
+      <div className="bg-background border border-border rounded-md mb-6 animate-fade-in">
+        {/* Post Header */}
+        <div className="flex items-center justify-between p-3">
+          <Link to={`/profile/${post.user.username}`} className="flex items-center gap-2">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={post.user.profilePicture} alt={post.user.username} />
+              <AvatarFallback>{post.user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">
+                {post.user.username}
+                {post.user.isVerified && (
+                  <span className="inline-block ml-1 text-social-purple">✓</span>
+                )}
+              </span>
+            </div>
+          </Link>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </div>
 
-      {/* Post Image */}
-      <div className="relative pb-[100%]">
-        <img
-          src={post.imageUrl}
-          alt={`Post by ${post.user.username}`}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      </div>
+        {/* Post Image */}
+        <div className="relative pb-[100%]">
+          <img
+            src={post.imageUrl}
+            alt={`Post by ${post.user.username}`}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        </div>
 
-      {/* Post Actions */}
-      <div className="p-3">
-        <div className="flex justify-between mb-2">
-          <div className="flex gap-3">
+        {/* Post Actions */}
+        <div className="p-3">
+          <div className="flex justify-between mb-2">
+            <div className="flex gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8" 
+                onClick={handleLike}
+              >
+                <Heart 
+                  className={cn("h-6 w-6", liked && "fill-red-500 text-red-500")} 
+                />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCommentClick}>
+                <MessageSquare className="h-6 w-6" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleShareClick}>
+                <Send className="h-6 w-6" />
+              </Button>
+            </div>
             <Button 
               variant="ghost" 
               size="icon" 
               className="h-8 w-8" 
-              onClick={handleLike}
+              onClick={handleSave}
             >
-              <Heart 
-                className={cn("h-6 w-6", liked && "fill-red-500 text-red-500")} 
+              <Bookmark 
+                className={cn("h-6 w-6", saved && "fill-social-purple text-social-purple")} 
               />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MessageSquare className="h-6 w-6" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Send className="h-6 w-6" />
-            </Button>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8" 
-            onClick={handleSave}
-          >
-            <Bookmark 
-              className={cn("h-6 w-6", saved && "fill-social-purple text-social-purple")} 
-            />
-          </Button>
+
+          {/* Likes */}
+          <div className="font-medium text-sm mb-1">{likesCount.toLocaleString()} likes</div>
+
+          {/* Caption */}
+          <div className="text-sm mb-1">
+            <Link to={`/profile/${post.user.username}`} className="font-medium">
+              {post.user.username}
+            </Link>{" "}
+            {post.caption}
+          </div>
+
+          {/* Comments link */}
+          {post.comments > 0 && (
+            <button 
+              onClick={handleCommentClick}
+              className="text-sm text-social-text-secondary hover:text-social-text-primary"
+            >
+              View all {post.comments} comments
+            </button>
+          )}
+
+          {/* Timestamp */}
+          <div className="text-xs text-social-text-secondary mt-2">
+            {formatDistanceToNow(new Date(post.timestamp), { addSuffix: true })}
+          </div>
         </div>
-
-        {/* Likes */}
-        <div className="font-medium text-sm mb-1">{likesCount.toLocaleString()} likes</div>
-
-        {/* Caption */}
-        <div className="text-sm mb-1">
-          <Link to={`/profile/${post.user.username}`} className="font-medium">
-            {post.user.username}
-          </Link>{" "}
-          {post.caption}
-        </div>
-
-        {/* Comments link */}
-        {post.comments > 0 && (
-          <Link to={`/post/${post.id}`} className="text-sm text-social-text-secondary">
-            View all {post.comments} comments
-          </Link>
+        
+        {/* Comments Section (Expanded) */}
+        {showComments && (
+          <CommentSection 
+            postId={post.id} 
+            isOpen={showComments} 
+            onClose={() => setShowComments(false)} 
+          />
         )}
-
-        {/* Timestamp */}
-        <div className="text-xs text-social-text-secondary mt-2">
-          {formatDistanceToNow(new Date(post.timestamp), { addSuffix: true })}
-        </div>
       </div>
-    </div>
+      
+      {/* Share modal */}
+      <SharePostModal 
+        open={isShareModalOpen}
+        onOpenChange={setIsShareModalOpen}
+        postId={post.id}
+        postImageUrl={post.imageUrl}
+      />
+    </>
   );
 };
 

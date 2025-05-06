@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import PostCard from "./PostCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
+import { Post } from "@/types";
 
-// Define a simpler interface for the post response to avoid deep type instantiation
-interface SimplifiedPost {
+// Define a simpler interface just for the component
+interface PostWithDetails {
   id: string;
   user_id: string;
   caption: string | null;
@@ -29,8 +30,7 @@ interface SimplifiedPost {
 const PostsList = () => {
   const { user } = useAuth();
 
-  // Define the fetch function with a concrete return type to avoid deep instantiation
-  const fetchPosts = async (): Promise<SimplifiedPost[]> => {
+  const fetchPosts = async (): Promise<PostWithDetails[]> => {
     if (!user) return [];
 
     // First fetch users that the current user follows
