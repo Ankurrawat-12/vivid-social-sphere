@@ -1,16 +1,38 @@
-
-import React, { useState } from "react";
-import StoryCircle from "./StoryCircle";
-import { mockStories } from "@/data/mock-data";
+import React, { useState, useEffect } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
-import { currentUser } from "@/data/mock-data";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { Story } from "@/types/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
+import StoryCircle from "./StoryCircle";
 import StoryUploadModal from "./StoryUploadModal";
 import StoryViewer from "./StoryViewer";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { ProfileWithCounts } from "@/types/supabase";
+
+// For typing story data
+interface Story {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: string;
+  created_at: string;
+  expires_at: string;
+  profile?: {
+    username: string;
+    avatar_url: string | null;
+  };
+  isViewed?: boolean;
+}
+
+interface StoryGroup {
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  stories: Story[];
+}
 
 const StoriesBar = () => {
   const { user } = useAuth();
