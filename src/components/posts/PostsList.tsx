@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,12 +28,11 @@ const PostsList = () => {
   const fetchPosts = async (): Promise<TransformedPost[]> => {
     if (!user) return [];
 
-    // First fetch users that the current user follows
+    // First fetch users that the current user follows - remove status condition
     const { data: followsData, error: followsError } = await supabase
       .from('follows')
       .select('following_id')
-      .eq('follower_id', user.id)
-      .eq('status', 'accepted');
+      .eq('follower_id', user.id);
     
     if (followsError) {
       console.error('Error fetching follows data:', followsError);

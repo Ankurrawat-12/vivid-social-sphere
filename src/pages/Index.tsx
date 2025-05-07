@@ -19,7 +19,7 @@ const Index = () => {
         {!user && (
           <div className="max-w-lg mx-auto mt-8 p-4 text-center bg-muted rounded-md">
             <p className="text-muted-foreground mb-2">
-              Sign in to see posts from people you follow
+              Sign in to see posts from people you follow and posts you might like
             </p>
           </div>
         )}
