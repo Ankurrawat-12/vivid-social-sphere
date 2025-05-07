@@ -48,10 +48,18 @@ const UserPostsGrid = ({ userId, profile }: UserPostsGridProps) => {
         
       if (error) throw error;
 
+      // Transform the data to match the expected type structure
+      // Convert array counts to numbers
+      const transformedData = (data || []).map(post => ({
+        ...post,
+        likes_count: parseInt(String(post.likes_count[0]?.count || "0"), 10),
+        comments_count: parseInt(String(post.comments_count[0]?.count || "0"), 10)
+      }));
+
       // Check if the current user has liked each post
       if (user) {
         const postsWithLikeStatus = await Promise.all(
-          (data || []).map(async (post) => {
+          transformedData.map(async (post) => {
             const { data: likeData } = await supabase
               .from("likes")
               .select("id")
@@ -69,7 +77,7 @@ const UserPostsGrid = ({ userId, profile }: UserPostsGridProps) => {
         return postsWithLikeStatus as PostWithProfile[];
       }
       
-      return (data || []).map(post => ({
+      return transformedData.map(post => ({
         ...post,
         user_has_liked: false
       })) as PostWithProfile[];
