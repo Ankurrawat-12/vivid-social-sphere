@@ -180,13 +180,11 @@ const UserPostsGrid = ({ userId, profile }: UserPostsGridProps) => {
       </div>
 
       {/* Post Modal */}
-      {selectedPost && (
-        <Dialog open={isPostModalOpen} onOpenChange={setIsPostModalOpen}>
-          <DialogContent className="sm:max-w-lg p-0">
-            <PostCard post={selectedPost} />
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog open={isPostModalOpen} onOpenChange={setIsPostModalOpen}>
+        <DialogContent className="sm:max-w-lg p-0">
+          {selectedPost && <PostCard post={selectedPost} />}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
