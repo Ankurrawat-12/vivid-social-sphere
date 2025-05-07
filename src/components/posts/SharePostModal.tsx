@@ -72,6 +72,22 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
     mutationFn: async () => {
       if (!user || selectedUsers.length === 0) return;
       
+      // Get the post details
+      const { data: postData, error: postError } = await supabase
+        .from('posts')
+        .select('caption')
+        .eq('id', postId)
+        .single();
+        
+      if (postError) throw postError;
+      
+      // Generate a shareable link to the post
+      // This would typically be a URL to your app plus the post ID
+      const postLink = `${window.location.origin}/post/${postId}`;
+      
+      // Create a message that includes both the user's message and a link to the post
+      const fullMessage = message ? `${message}\n\n${postLink}` : postLink;
+      
       // Send a message to each selected user
       await Promise.all(selectedUsers.map(async (recipient) => {
         // Create message
@@ -80,7 +96,7 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
           .insert({
             sender_id: user.id,
             recipient_id: recipient.id,
-            content: message,
+            content: fullMessage,
             media_url: postImageUrl,
             media_type: 'post_share',
           })
@@ -148,6 +164,19 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
         </DialogHeader>
         
         <div className="space-y-4">
+          {/* Image preview */}
+          <div className="aspect-square w-full rounded-md overflow-hidden bg-muted mb-4">
+            <img 
+              src={postImageUrl} 
+              alt="Post to share" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = "/placeholder.svg";
+              }}
+            />
+          </div>
+          
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input

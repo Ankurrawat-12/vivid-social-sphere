@@ -78,6 +78,7 @@ const StoriesBar = () => {
   const [isStoryUploadOpen, setIsStoryUploadOpen] = useState(false);
   const [isStoryViewerOpen, setIsStoryViewerOpen] = useState(false);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
+  const [userHasStory, setUserHasStory] = useState(false);
 
   const { data: stories = [] } = useQuery<ComponentStory[]>({
     queryKey: ['stories'],
@@ -127,6 +128,14 @@ const StoriesBar = () => {
     enabled: !!user
   });
 
+  // Check if the current user has a story
+  useEffect(() => {
+    if (user && stories.length > 0) {
+      const hasUserStory = stories.some(story => story.user_id === user.id);
+      setUserHasStory(hasUserStory);
+    }
+  }, [stories, user]);
+
   const handleStoryClick = (index: number) => {
     setSelectedStoryIndex(index);
     setIsStoryViewerOpen(true);
@@ -143,7 +152,7 @@ const StoriesBar = () => {
           {/* Create Story */}
           <div className="flex flex-col items-center gap-1 min-w-[64px]" onClick={handleCreateStoryClick}>
             <div className="relative cursor-pointer">
-              <Avatar className="h-16 w-16 border border-border">
+              <Avatar className={cn("h-16 w-16 border border-border", userHasStory && "ring-2 ring-social-purple")}>
                 <AvatarImage src={profile?.avatar_url || ""} alt="Your story" className="object-cover" />
                 <AvatarFallback>{profile?.username?.substring(0, 2).toUpperCase() || "ME"}</AvatarFallback>
               </Avatar>
@@ -170,6 +179,7 @@ const StoriesBar = () => {
                     posts: 0
                   }} 
                   viewed={story.viewed_by_user} 
+                  hasStory={true}
                 />
               </div>
             ))
