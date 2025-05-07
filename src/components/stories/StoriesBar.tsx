@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import StoryCircle from "./StoryCircle";
 import StoryUploadModal from "./StoryUploadModal";
 import StoryViewer from "./StoryViewer";
@@ -17,14 +19,17 @@ interface Story {
   id: string;
   user_id: string;
   media_url: string;
-  media_type: string;
+  media_type: "image" | "video";
   created_at: string;
   expires_at: string;
   profile?: {
+    id: string;
     username: string;
     avatar_url: string | null;
+    display_name: string | null;
+    bio: string | null;
   };
-  isViewed?: boolean;
+  viewed_by_user?: boolean;
 }
 
 interface StoryGroup {
@@ -34,8 +39,40 @@ interface StoryGroup {
   stories: Story[];
 }
 
+// Mock stories for fallback
+const mockStories = [
+  {
+    id: "1",
+    user: {
+      id: "1",
+      username: "janedoe",
+      displayName: "Jane Doe",
+      profilePicture: "",
+      bio: "",
+      followers: 0,
+      following: 0,
+      posts: 0
+    },
+    viewed: false
+  },
+  {
+    id: "2",
+    user: {
+      id: "2",
+      username: "johnsmith",
+      displayName: "John Smith",
+      profilePicture: "",
+      bio: "",
+      followers: 0,
+      following: 0,
+      posts: 0
+    },
+    viewed: true
+  }
+];
+
 const StoriesBar = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isStoryUploadOpen, setIsStoryUploadOpen] = useState(false);
   const [isStoryViewerOpen, setIsStoryViewerOpen] = useState(false);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
@@ -105,8 +142,8 @@ const StoriesBar = () => {
           <div className="flex flex-col items-center gap-1 min-w-[64px]" onClick={handleCreateStoryClick}>
             <div className="relative cursor-pointer">
               <Avatar className="h-16 w-16 border border-border">
-                {/* Fix: Use profile?.avatar_url instead of user?.profilePicture */}
-                <img src={user?.profile?.avatar_url || currentUser.profilePicture} alt="Your story" className="object-cover" />
+                <AvatarImage src={profile?.avatar_url || ""} alt="Your story" className="object-cover" />
+                <AvatarFallback>{profile?.username?.substring(0, 2).toUpperCase() || "ME"}</AvatarFallback>
               </Avatar>
               <div className="absolute bottom-0 right-0 bg-social-purple rounded-full p-1">
                 <Plus className="h-3 w-3 text-white" />
@@ -121,11 +158,11 @@ const StoriesBar = () => {
               <div key={story.id} className="min-w-[64px] cursor-pointer" onClick={() => handleStoryClick(index)}>
                 <StoryCircle 
                   user={{
-                    id: story.profile.id,
-                    username: story.profile.username,
-                    displayName: story.profile.display_name || story.profile.username,
-                    profilePicture: story.profile.avatar_url || '',
-                    bio: story.profile.bio || '',
+                    id: story.profile?.id || "",
+                    username: story.profile?.username || "",
+                    displayName: story.profile?.display_name || story.profile?.username || "",
+                    profilePicture: story.profile?.avatar_url || '',
+                    bio: story.profile?.bio || '',
                     followers: 0,
                     following: 0,
                     posts: 0
