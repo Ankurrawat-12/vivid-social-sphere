@@ -13,6 +13,7 @@ import StoryViewer from "./StoryViewer";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ProfileWithCounts, Story as SupabaseStory } from "@/types/supabase";
+import { cn } from "@/lib/utils";
 
 // For typing story data in this component - separate from the imported type
 interface ComponentStory {

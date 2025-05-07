@@ -34,21 +34,45 @@ const UserPostsGrid = ({ userId, profile }: UserPostsGridProps) => {
       // Don't fetch posts if this is a private profile and user doesn't have access
       if (isPrivateAndNotAccessible) return [];
 
+      // Fix: Remove the filter expression causing the TypeScript error
       const { data, error } = await supabase
         .from("posts")
         .select(`
           *,
           profile:user_id (*),
           likes_count:likes(count),
-          comments_count:comments(count),
-          user_has_liked:likes!inner(id).filter(user_id.eq.${user?.id || null})
+          comments_count:comments(count)
         `)
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
         
       if (error) throw error;
+
+      // Check if the current user has liked each post
+      if (user) {
+        const postsWithLikeStatus = await Promise.all(
+          (data || []).map(async (post) => {
+            const { data: likeData } = await supabase
+              .from("likes")
+              .select("id")
+              .eq("post_id", post.id)
+              .eq("user_id", user.id)
+              .single();
+            
+            return {
+              ...post,
+              user_has_liked: !!likeData
+            };
+          })
+        );
+        
+        return postsWithLikeStatus as PostWithProfile[];
+      }
       
-      return data as PostWithProfile[];
+      return (data || []).map(post => ({
+        ...post,
+        user_has_liked: false
+      })) as PostWithProfile[];
     },
     enabled: !!userId && !isPrivateAndNotAccessible
   });
@@ -74,7 +98,7 @@ const UserPostsGrid = ({ userId, profile }: UserPostsGridProps) => {
       likes: post.likes_count,
       comments: post.comments_count,
       timestamp: post.created_at,
-      isLiked: post.user_has_liked && post.user_has_liked.length > 0,
+      isLiked: post.user_has_liked,
       isSaved: false
     };
 
@@ -104,7 +128,7 @@ const UserPostsGrid = ({ userId, profile }: UserPostsGridProps) => {
     );
   }
 
-  if (!posts?.length) {
+  if (!posts || posts.length === 0) {
     return (
       <div className="h-40 flex items-center justify-center text-social-text-secondary">
         No posts yet
