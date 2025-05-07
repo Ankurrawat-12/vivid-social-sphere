@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AppLayout from "@/components/layout/AppLayout";
 import EditProfileForm from "@/components/profile/EditProfileForm";
 import ProfileSettings from "@/components/profile/ProfileSettings";
@@ -90,18 +90,18 @@ const Profile = () => {
           canViewContent={canViewContent}
         />
 
-        {/* Modals */}
-        {isEditProfileOpen && (
+        {/* Modals - Always render the Dialog components but conditionally render their content */}
+        <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
           <DialogContent className="sm:max-w-[425px]">
-            <EditProfileForm onComplete={() => setIsEditProfileOpen(false)} />
+            {isEditProfileOpen && <EditProfileForm onComplete={() => setIsEditProfileOpen(false)} />}
           </DialogContent>
-        )}
+        </Dialog>
 
-        {isSettingsOpen && (
+        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
           <DialogContent className="sm:max-w-[425px]">
-            <ProfileSettings onComplete={() => setIsSettingsOpen(false)} />
+            {isSettingsOpen && <ProfileSettings onComplete={() => setIsSettingsOpen(false)} />}
           </DialogContent>
-        )}
+        </Dialog>
       </div>
     </AppLayout>
   );
