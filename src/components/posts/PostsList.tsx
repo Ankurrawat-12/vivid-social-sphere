@@ -1,235 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import PostCard from "./PostCard";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { PostWithProfile } from "@/types/supabase";
 
-// Explicitly define types to avoid deep type instantiation
-interface TransformedPost extends Omit<PostWithProfile, "profile"> {
-  profile: {
-    id: string;
-    username: string;
-    display_name: string | null;
-    avatar_url: string | null;
-    bio: string | null;
-  };
-  likes_count: number;
-  comments_count: number;
-  user_has_liked: boolean;
-}
+import React from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import PostCard from "./PostCard";
+import PostsLoading from "./PostsLoading";
+import PostsEmpty from "./PostsEmpty";
+import SuggestionBanner from "./SuggestionBanner";
+import { usePosts } from "@/hooks/usePosts";
 
 const PostsList = () => {
   const { user } = useAuth();
-  const [seenAllFollowingPosts, setSeenAllFollowingPosts] = useState(false);
-
-  const fetchPosts = async (): Promise<TransformedPost[]> => {
-    if (!user) return [];
-
-    // First fetch users that the current user follows - remove status condition
-    const { data: followsData, error: followsError } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', user.id);
-    
-    if (followsError) {
-      console.error('Error fetching follows data:', followsError);
-      return [];
-    }
-    
-    const followingIds = followsData?.map(follow => follow.following_id) || [];
-    
-    // Add the user's own ID to see their posts too
-    followingIds.push(user.id);
-    
-    // Get posts from followed users
-    if (followingIds.length === 0) {
-      setSeenAllFollowingPosts(true);
-      return [];
-    }
-    
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        profile:user_id(*),
-        likes_count:likes(count),
-        comments_count:comments(count)
-      `)
-      .in('user_id', followingIds)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching posts:', error);
-      throw error;
-    }
-
-    if (!data || data.length === 0) {
-      setSeenAllFollowingPosts(true);
-      // If no posts from following users, return empty array
-      return [];
-    }
-
-    // Transform counts from array objects to numbers
-    const transformedData = data.map(post => ({
-      ...post,
-      likes_count: parseInt(String(post.likes_count[0]?.count || "0"), 10),
-      comments_count: parseInt(String(post.comments_count[0]?.count || "0"), 10)
-    }));
-
-    // Check if the user has liked each post
-    if (user.id) {
-      const postsWithLikeStatus = await Promise.all(
-        transformedData.map(async (post) => {
-          const { data: likeData } = await supabase
-            .from('likes')
-            .select('*')
-            .eq('post_id', post.id)
-            .eq('user_id', user.id)
-            .single();
-          
-          return {
-            ...post,
-            user_has_liked: !!likeData
-          };
-        })
-      );
-      
-      return postsWithLikeStatus as TransformedPost[];
-    }
-
-    return transformedData.map(post => ({
-      ...post,
-      user_has_liked: false
-    })) as TransformedPost[];
-  };
-
-  const fetchRandomSuggestions = async (): Promise<TransformedPost[]> => {
-    if (!user) return [];
-    
-    try {
-      // Get random posts not from followed users and not from the current user
-      const { data: followsData } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', user.id);
-      
-      const excludeIds = followsData?.map(follow => follow.following_id) || [];
-      excludeIds.push(user.id);
-
-      // If there are no excludeIds, just get some posts
-      const query = supabase
-        .from('posts')
-        .select(`
-          *,
-          profile:user_id(*),
-          likes_count:likes(count),
-          comments_count:comments(count)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(5);
-        
-      // Only apply the not-in filter if there are IDs to exclude  
-      if (excludeIds.length > 0) {
-        query.not('user_id', 'in', `(${excludeIds.join(',')})`);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      if (!data || data.length === 0) return [];
-      
-      // Transform counts from array objects to numbers
-      const transformedData = data.map(post => ({
-        ...post,
-        likes_count: parseInt(String(post.likes_count[0]?.count || "0"), 10),
-        comments_count: parseInt(String(post.comments_count[0]?.count || "0"), 10)
-      }));
-      
-      // Check if the user has liked each post
-      const postsWithLikeStatus = await Promise.all(
-        transformedData.map(async (post) => {
-          const { data: likeData } = await supabase
-            .from('likes')
-            .select('*')
-            .eq('post_id', post.id)
-            .eq('user_id', user.id)
-            .single();
-          
-          return {
-            ...post,
-            user_has_liked: !!likeData
-          };
-        })
-      );
-      
-      return postsWithLikeStatus as TransformedPost[];
-      
-    } catch (error) {
-      console.error('Error fetching suggested posts:', error);
-      return [];
-    }
-  };
-
   const { 
-    data: followingPosts = [], 
-    isLoading: isLoadingFollowing, 
-    isError: isErrorFollowing,
-    error: errorFollowing
-  } = useQuery<TransformedPost[], Error>({
-    queryKey: ['following-posts', user?.id],
-    queryFn: fetchPosts,
-    enabled: !!user
-  });
-  
-  const { 
-    data: suggestedPosts = [], 
-    isLoading: isLoadingSuggested,
-    isError: isErrorSuggested 
-  } = useQuery<TransformedPost[], Error>({
-    queryKey: ['suggested-posts', user?.id],
-    queryFn: fetchRandomSuggestions,
-    enabled: !!user && (seenAllFollowingPosts || followingPosts.length === 0)
-  });
-
-  // Check if user has seen all posts from their following
-  useEffect(() => {
-    if (followingPosts.length === 0 && !isLoadingFollowing) {
-      setSeenAllFollowingPosts(true);
-    }
-  }, [followingPosts, isLoadingFollowing]);
-  
-  // Combine posts - show following posts first, then suggestions if needed
-  const posts = followingPosts.length > 0 ? followingPosts : suggestedPosts;
-  const isLoading = isLoadingFollowing || (isLoadingSuggested && seenAllFollowingPosts);
-  const isError = isErrorFollowing || (isErrorSuggested && seenAllFollowingPosts);
-  const error = errorFollowing;
+    posts, 
+    isLoading, 
+    isError, 
+    error, 
+    seenAllFollowingPosts, 
+    hasSuggestedPosts 
+  } = usePosts(user?.id);
   
   if (isLoading) {
-    return (
-      <div className="max-w-lg mx-auto space-y-6">
-        {[1, 2, 3].map((index) => (
-          <div key={index} className="border border-border rounded-md">
-            <div className="p-3 flex items-center gap-2">
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-            <Skeleton className="h-96 w-full" />
-            <div className="p-3 space-y-2">
-              <div className="flex gap-4">
-                <Skeleton className="h-6 w-20" />
-                <Skeleton className="h-6 w-20" />
-              </div>
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+    return <PostsLoading />;
   }
 
   if (isError) {
@@ -237,21 +27,12 @@ const PostsList = () => {
   }
 
   if (!posts || posts.length === 0) {
-    return (
-      <div className="max-w-lg mx-auto p-4 text-center">
-        <p className="text-muted-foreground">No posts yet. Follow users or create your first post!</p>
-      </div>
-    );
+    return <PostsEmpty />;
   }
 
   return (
     <div className="max-w-lg mx-auto">
-      {seenAllFollowingPosts && suggestedPosts.length > 0 && (
-        <div className="mb-4 p-4 bg-muted/30 rounded-lg text-center">
-          <p className="text-sm font-medium">You've seen all posts from people you follow</p>
-          <p className="text-xs text-muted-foreground">Here are some posts you might like</p>
-        </div>
-      )}
+      {seenAllFollowingPosts && hasSuggestedPosts && <SuggestionBanner />}
       
       {posts.map((post) => (
         <PostCard key={post.id} post={{
