@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,24 +6,17 @@ import PostCard from "./PostCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { PostWithProfile } from "@/types/supabase";
 
 // Explicitly define types to avoid deep type instantiation
-interface PostProfile {
-  id: string;
-  username: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-}
-
-interface PostWithDetails {
-  id: string;
-  user_id: string;
-  caption: string | null;
-  image_url: string;
-  created_at: string;
-  updated_at: string;
-  profile: PostProfile;
+interface TransformedPost extends Omit<PostWithProfile, "profile"> {
+  profile: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    bio: string | null;
+  };
   likes_count: number;
   comments_count: number;
   user_has_liked: boolean;
@@ -32,15 +26,20 @@ const PostsList = () => {
   const { user } = useAuth();
   const [seenAllFollowingPosts, setSeenAllFollowingPosts] = useState(false);
 
-  const fetchPosts = async (): Promise<PostWithDetails[]> => {
+  const fetchPosts = async (): Promise<TransformedPost[]> => {
     if (!user) return [];
 
     // First fetch users that the current user follows
-    const { data: followsData } = await supabase
+    const { data: followsData, error: followsError } = await supabase
       .from('follows')
       .select('following_id')
       .eq('follower_id', user.id)
       .eq('status', 'accepted');
+    
+    if (followsError) {
+      console.error('Error fetching follows data:', followsError);
+      return [];
+    }
     
     const followingIds = followsData?.map(follow => follow.following_id) || [];
     
@@ -48,6 +47,11 @@ const PostsList = () => {
     followingIds.push(user.id);
     
     // Get posts from followed users
+    if (followingIds.length === 0) {
+      setSeenAllFollowingPosts(true);
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('posts')
       .select(`
@@ -95,16 +99,16 @@ const PostsList = () => {
         })
       );
       
-      return postsWithLikeStatus;
+      return postsWithLikeStatus as TransformedPost[];
     }
 
     return transformedData.map(post => ({
       ...post,
       user_has_liked: false
-    }));
+    })) as TransformedPost[];
   };
 
-  const fetchRandomSuggestions = async (): Promise<PostWithDetails[]> => {
+  const fetchRandomSuggestions = async (): Promise<TransformedPost[]> => {
     if (!user) return [];
     
     try {
@@ -116,8 +120,9 @@ const PostsList = () => {
       
       const excludeIds = followsData?.map(follow => follow.following_id) || [];
       excludeIds.push(user.id);
-      
-      const { data, error } = await supabase
+
+      // If there are no excludeIds, just get some posts
+      const query = supabase
         .from('posts')
         .select(`
           *,
@@ -125,9 +130,15 @@ const PostsList = () => {
           likes_count:likes(count),
           comments_count:comments(count)
         `)
-        .not('user_id', 'in', `(${excludeIds.join(',')})`)
         .order('created_at', { ascending: false })
         .limit(5);
+        
+      // Only apply the not-in filter if there are IDs to exclude  
+      if (excludeIds.length > 0) {
+        query.not('user_id', 'in', `(${excludeIds.join(',')})`);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       
@@ -157,7 +168,7 @@ const PostsList = () => {
         })
       );
       
-      return postsWithLikeStatus;
+      return postsWithLikeStatus as TransformedPost[];
       
     } catch (error) {
       console.error('Error fetching suggested posts:', error);
@@ -170,7 +181,7 @@ const PostsList = () => {
     isLoading: isLoadingFollowing, 
     isError: isErrorFollowing,
     error: errorFollowing
-  } = useQuery<PostWithDetails[], Error>({
+  } = useQuery<TransformedPost[], Error>({
     queryKey: ['following-posts', user?.id],
     queryFn: fetchPosts,
     enabled: !!user
@@ -180,7 +191,7 @@ const PostsList = () => {
     data: suggestedPosts = [], 
     isLoading: isLoadingSuggested,
     isError: isErrorSuggested 
-  } = useQuery<PostWithDetails[], Error>({
+  } = useQuery<TransformedPost[], Error>({
     queryKey: ['suggested-posts', user?.id],
     queryFn: fetchRandomSuggestions,
     enabled: !!user && (seenAllFollowingPosts || followingPosts.length === 0)

@@ -1,3 +1,4 @@
+
 // Types for Supabase tables and queries
 
 export interface Profile {
