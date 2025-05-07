@@ -12,10 +12,10 @@ import StoryUploadModal from "./StoryUploadModal";
 import StoryViewer from "./StoryViewer";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ProfileWithCounts } from "@/types/supabase";
+import { ProfileWithCounts, Story as SupabaseStory } from "@/types/supabase";
 
-// For typing story data
-interface Story {
+// For typing story data in this component - separate from the imported type
+interface ComponentStory {
   id: string;
   user_id: string;
   media_url: string;
@@ -28,6 +28,8 @@ interface Story {
     avatar_url: string | null;
     display_name: string | null;
     bio: string | null;
+    created_at: string;
+    updated_at: string;
   };
   viewed_by_user?: boolean;
 }
@@ -36,7 +38,7 @@ interface StoryGroup {
   user_id: string;
   username: string;
   avatar_url: string | null;
-  stories: Story[];
+  stories: ComponentStory[];
 }
 
 // Mock stories for fallback
@@ -77,7 +79,7 @@ const StoriesBar = () => {
   const [isStoryViewerOpen, setIsStoryViewerOpen] = useState(false);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
 
-  const { data: stories = [] } = useQuery({
+  const { data: stories = [] } = useQuery<ComponentStory[]>({
     queryKey: ['stories'],
     queryFn: async () => {
       if (!user) return [];
@@ -120,7 +122,7 @@ const StoriesBar = () => {
         })
       );
       
-      return storiesWithViewStatus as Story[];
+      return storiesWithViewStatus as ComponentStory[];
     },
     enabled: !!user
   });
@@ -192,7 +194,7 @@ const StoriesBar = () => {
         <StoryViewer
           open={isStoryViewerOpen}
           onOpenChange={setIsStoryViewerOpen}
-          stories={stories}
+          stories={stories as unknown as SupabaseStory[]}
           initialStoryIndex={selectedStoryIndex}
         />
       )}
