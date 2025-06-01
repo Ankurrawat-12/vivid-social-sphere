@@ -81,6 +81,9 @@ const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
         .from('stories')
         .getPublicUrl(filePath);
 
+      // Calculate expiration time (12 hours from now)
+      const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+
       // Insert story record
       const { error: insertError } = await supabase
         .from('stories')
@@ -88,6 +91,7 @@ const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
           user_id: user.id,
           media_url: urlData.publicUrl,
           media_type: mediaType,
+          expires_at: expiresAt
         });
 
       if (insertError) throw insertError;
@@ -95,7 +99,7 @@ const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
       // Success
       toast({
         title: 'Story uploaded!',
-        description: 'Your story has been uploaded successfully.',
+        description: 'Your story has been uploaded and will disappear in 12 hours.',
       });
 
       // Reset state and close modal
@@ -147,6 +151,9 @@ const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
                   <p className="text-sm font-medium">Drag and drop your file here</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Supports images and videos up to 10MB
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Story will disappear after 12 hours
                   </p>
                 </div>
                 <Label
@@ -208,7 +215,7 @@ const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
                   Uploading
                 </>
               ) : (
-                'Share'
+                'Share Story'
               )}
             </Button>
           </div>
