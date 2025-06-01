@@ -54,8 +54,8 @@ const SavedPostsGrid = ({ userId, profile }: SavedPostsGridProps) => {
         const post = savedPost.post;
         return {
           ...post,
-          likes_count: parseInt(String(post.likes_count[0]?.count || "0"), 10),
-          comments_count: parseInt(String(post.comments_count[0]?.count || "0"), 10),
+          likes_count: post.likes_count || 0,
+          comments_count: post.comments_count || 0,
           user_has_liked: false // We'll check this separately if needed
         };
       });
