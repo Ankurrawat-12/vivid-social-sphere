@@ -1,4 +1,3 @@
-
 // Types for Supabase tables and queries
 
 export interface Profile {
@@ -91,4 +90,11 @@ export interface Story {
   expires_at: string;
   profile?: Profile;
   viewed_by_user?: boolean;
+}
+
+export interface SavedPost {
+  id: string;
+  user_id: string;
+  post_id: string;
+  created_at: string;
 }

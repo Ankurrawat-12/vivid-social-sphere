@@ -1,8 +1,9 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bookmark, Film, Grid, User as UserIcon } from "lucide-react";
-import UserPostsGrid from "@/components/profile/UserPostsGrid";
+import { Grid, Bookmark } from "lucide-react";
+import UserPostsGrid from "./UserPostsGrid";
+import SavedPostsGrid from "./SavedPostsGrid";
 import { ProfileWithCounts } from "@/types/supabase";
 
 interface ProfileContentProps {
@@ -11,54 +12,45 @@ interface ProfileContentProps {
   canViewContent: boolean;
 }
 
-const ProfileContent: React.FC<ProfileContentProps> = ({
-  profileData,
-  isOwnProfile,
-  canViewContent
-}) => {
+const ProfileContent = ({ profileData, isOwnProfile, canViewContent }: ProfileContentProps) => {
+  const [activeTab, setActiveTab] = useState("posts");
+
+  if (!canViewContent) {
+    return (
+      <div className="mt-8 text-center text-muted-foreground">
+        <p>This account is private</p>
+        <p className="text-sm mt-1">Follow this account to see their posts</p>
+      </div>
+    );
+  }
+
   return (
-    <Tabs defaultValue="posts">
-      <TabsList className="w-full">
-        <TabsTrigger value="posts" className="flex-1">
-          <Grid className="h-4 w-4 mr-2" />
-          Posts
-        </TabsTrigger>
-        <TabsTrigger value="saved" className="flex-1" disabled={!isOwnProfile}>
-          <Bookmark className="h-4 w-4 mr-2" />
-          Saved
-        </TabsTrigger>
-        <TabsTrigger value="videos" className="flex-1">
-          <Film className="h-4 w-4 mr-2" />
-          Videos
-        </TabsTrigger>
-        <TabsTrigger value="tagged" className="flex-1">
-          <UserIcon className="h-4 w-4 mr-2" />
-          Tagged
-        </TabsTrigger>
-      </TabsList>
-      
-      <TabsContent value="posts" className="mt-6">
-        {profileData && <UserPostsGrid userId={profileData.id} profile={profileData} />}
-      </TabsContent>
-      
-      <TabsContent value="saved" className="mt-6">
-        <div className="h-40 flex items-center justify-center text-social-text-secondary">
-          {isOwnProfile ? "No saved posts yet" : "This tab is only visible to the profile owner"}
-        </div>
-      </TabsContent>
-      
-      <TabsContent value="videos">
-        <div className="h-40 flex items-center justify-center text-social-text-secondary">
-          No videos yet
-        </div>
-      </TabsContent>
-      
-      <TabsContent value="tagged">
-        <div className="h-40 flex items-center justify-center text-social-text-secondary">
-          No tagged posts
-        </div>
-      </TabsContent>
-    </Tabs>
+    <div className="mt-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="posts" className="flex items-center gap-2">
+            <Grid className="h-4 w-4" />
+            Posts
+          </TabsTrigger>
+          {isOwnProfile && (
+            <TabsTrigger value="saved" className="flex items-center gap-2">
+              <Bookmark className="h-4 w-4" />
+              Saved
+            </TabsTrigger>
+          )}
+        </TabsList>
+        
+        <TabsContent value="posts" className="mt-6">
+          <UserPostsGrid userId={profileData.id} profile={profileData} />
+        </TabsContent>
+        
+        {isOwnProfile && (
+          <TabsContent value="saved" className="mt-6">
+            <SavedPostsGrid userId={profileData.id} profile={profileData} />
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
   );
 };
 

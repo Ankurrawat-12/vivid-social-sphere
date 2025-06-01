@@ -38,13 +38,11 @@ const ProfileSettings = ({ onComplete }: { onComplete?: () => void }) => {
     try {
       if (!user) return;
       
-      // Add is_private column to profiles table if it doesn't exist
       const { error } = await supabase
         .from("profiles")
         .update({ 
-          // Only update the is_private field
           is_private: values.isPrivate 
-        } as any) // Use type assertion to bypass TypeScript check
+        })
         .eq("id", user.id);
         
       if (error) {
