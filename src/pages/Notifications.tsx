@@ -35,14 +35,13 @@ const Notifications = () => {
         .from("notifications")
         .select(`
           *,
-          source_user:profiles!notifications_source_user_id_fkey(*)
+          source_user:profiles(*)
         `)
         .eq("target_user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Error fetching notifications:", error);
-        toast.error("Failed to load notifications");
         throw error;
       }
 
@@ -106,7 +105,7 @@ const Notifications = () => {
 
   // Get notification icon and text based on type
   const getNotificationContent = (notification: NotificationWithUser) => {
-    const username = notification.source_user.username;
+    const username = notification.source_user?.username || 'Unknown';
     
     switch (notification.type) {
       case "like":
@@ -193,11 +192,11 @@ const Notifications = () => {
                       <div className="flex items-start gap-3">
                         <Avatar className="h-10 w-10">
                           <AvatarImage
-                            src={notification.source_user.avatar_url || ''}
-                            alt={notification.source_user.username || ''}
+                            src={notification.source_user?.avatar_url || ''}
+                            alt={notification.source_user?.username || ''}
                           />
                           <AvatarFallback>
-                            {notification.source_user.username?.substring(0, 2).toUpperCase() || 'U'}
+                            {notification.source_user?.username?.substring(0, 2).toUpperCase() || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         

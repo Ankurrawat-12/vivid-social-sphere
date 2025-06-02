@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,7 +55,7 @@ export const useProfileData = (username: string | undefined) => {
             .select("status")
             .eq("follower_id", user.id)
             .eq("following_id", fetchedProfile.id)
-            .single() : { data: null, error: null }
+            .maybeSingle() : { data: null, error: null }
         ]);
         
         // Set following state based on status
@@ -94,7 +95,10 @@ export const useProfileData = (username: string | undefined) => {
             following_id: profileData.id
           });
           
-        if (error) throw error;
+        if (error) {
+          console.error("Follow error:", error);
+          throw error;
+        }
         
         // Return the appropriate status based on whether account is private
         return profileData.is_private ? "pending" as FollowStatus : "accepted" as FollowStatus;
@@ -106,7 +110,10 @@ export const useProfileData = (username: string | undefined) => {
           .eq("follower_id", user.id)
           .eq("following_id", profileData.id);
           
-        if (error) throw error;
+        if (error) {
+          console.error("Unfollow error:", error);
+          throw error;
+        }
         
         return "none" as FollowStatus;
       }
