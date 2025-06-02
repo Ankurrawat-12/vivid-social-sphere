@@ -22,8 +22,8 @@ export const useProfileData = (username: string | undefined) => {
           // Get the counts for the current user
           const [postsCountResult, followersCountResult, followingCountResult] = await Promise.all([
             supabase.from("posts").select("id", { count: "exact" }).eq("user_id", user?.id),
-            supabase.from("follows").select("id", { count: "exact" }).eq("following_id", user?.id),
-            supabase.from("follows").select("id", { count: "exact" }).eq("follower_id", user?.id)
+            supabase.from("follows").select("id", { count: "exact" }).eq("following_id", user?.id).eq("status", "accepted"),
+            supabase.from("follows").select("id", { count: "exact" }).eq("follower_id", user?.id).eq("status", "accepted")
           ]);
           
           return {
@@ -45,13 +45,13 @@ export const useProfileData = (username: string | undefined) => {
           throw new Error("Profile not found");
         }
         
-        // Get counts for the fetched profile
+        // Get counts for the fetched profile (only count accepted follows)
         const [postsCountResult, followersCountResult, followingCountResult, followStatusResult] = await Promise.all([
           supabase.from("posts").select("id", { count: "exact" }).eq("user_id", fetchedProfile.id),
-          supabase.from("follows").select("id", { count: "exact" }).eq("following_id", fetchedProfile.id),
-          supabase.from("follows").select("id", { count: "exact" }).eq("follower_id", fetchedProfile.id),
+          supabase.from("follows").select("id", { count: "exact" }).eq("following_id", fetchedProfile.id).eq("status", "accepted"),
+          supabase.from("follows").select("id", { count: "exact" }).eq("follower_id", fetchedProfile.id).eq("status", "accepted"),
           user?.id ? supabase.from("follows")
-            .select("*")
+            .select("status")
             .eq("follower_id", user.id)
             .eq("following_id", fetchedProfile.id)
             .single() : { data: null, error: null }
@@ -86,7 +86,7 @@ export const useProfileData = (username: string | undefined) => {
       if (!user || !profileData) throw new Error("User or profile data missing");
       
       if (action === "follow") {
-        // For follow, we'll use insert and handle the status through RLS policies later
+        // Insert follow request (trigger will handle setting correct status)
         const { error } = await supabase
           .from("follows")
           .insert({
@@ -96,16 +96,8 @@ export const useProfileData = (username: string | undefined) => {
           
         if (error) throw error;
         
-        // Create notification for the follow action
-        await supabase
-          .from("notifications")
-          .insert({
-            type: "follow",
-            source_user_id: user.id,
-            target_user_id: profileData.id
-          });
-          
-        return "accepted" as FollowStatus; // For now, always accept follows
+        // Return the appropriate status based on whether account is private
+        return profileData.is_private ? "pending" as FollowStatus : "accepted" as FollowStatus;
       } else {
         // For unfollow, simply delete the record
         const { error } = await supabase
