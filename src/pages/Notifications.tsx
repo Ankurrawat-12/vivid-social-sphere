@@ -25,7 +25,7 @@ const Notifications = () => {
   const queryClient = useQueryClient();
   const { followRequests, isLoading: isLoadingRequests, handleRequest, isHandling } = useFollowRequests();
 
-  // Fetch notifications
+  // Fetch notifications with corrected query syntax
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
@@ -35,7 +35,7 @@ const Notifications = () => {
         .from("notifications")
         .select(`
           *,
-          source_user:source_user_id(*)
+          source_user:profiles!notifications_source_user_id_fkey(*)
         `)
         .eq("target_user_id", user.id)
         .order("created_at", { ascending: false });

@@ -1,100 +1,62 @@
 
 import React from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/components/ui/form";
-import { Switch } from "@/components/ui/switch";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { Archive, Settings, User } from "lucide-react";
 
-const formSchema = z.object({
-  isPrivate: z.boolean().default(false),
-});
+interface ProfileSettingsProps {
+  onComplete: () => void;
+}
 
-type FormValues = z.infer<typeof formSchema>;
+const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onComplete }) => {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
 
-const ProfileSettings = ({ onComplete }: { onComplete?: () => void }) => {
-  const { user, profile, refreshProfile } = useAuth();
-  
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      isPrivate: profile?.is_private || false,
-    },
-  });
-
-  React.useEffect(() => {
-    if (profile) {
-      form.reset({
-        isPrivate: profile.is_private || false,
-      });
-    }
-  }, [profile, form]);
-
-  const onSubmit = async (values: FormValues) => {
+  const handleLogout = async () => {
     try {
-      if (!user) return;
-      
-      const { error } = await supabase
-        .from("profiles")
-        .update({ 
-          is_private: values.isPrivate 
-        })
-        .eq("id", user.id);
-        
-      if (error) {
-        console.error("Error details:", error);
-        throw error;
-      }
-      
-      toast.success("Profile settings updated successfully");
-      refreshProfile?.();
-      onComplete?.();
+      await signOut();
+      navigate("/auth");
+      onComplete();
     } catch (error) {
-      console.error("Error updating profile settings:", error);
-      toast.error("Failed to update profile settings");
+      console.error("Error signing out:", error);
     }
   };
 
+  const handleViewArchive = () => {
+    navigate("/archive");
+    onComplete();
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Profile Settings</h2>
-        <p className="text-sm text-muted-foreground">Manage your privacy and account settings</p>
-      </div>
+    <>
+      <DialogHeader>
+        <DialogTitle>Settings</DialogTitle>
+      </DialogHeader>
       
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="isPrivate"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base">Private Account</FormLabel>
-                  <FormDescription>
-                    When your account is private, only approved followers can see your content
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          
-          <div className="flex justify-end">
-            <Button type="submit">Save Changes</Button>
-          </div>
-        </form>
-      </Form>
-    </div>
+      <div className="space-y-4 py-4">
+        <Button
+          variant="ghost"
+          className="w-full justify-start"
+          onClick={handleViewArchive}
+        >
+          <Archive className="mr-2 h-4 w-4" />
+          View Archive
+        </Button>
+        
+        <Separator />
+        
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={handleLogout}
+        >
+          Logout
+        </Button>
+      </div>
+    </>
   );
 };
 

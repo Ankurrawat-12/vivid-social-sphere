@@ -32,7 +32,7 @@ export const useFollowRequests = () => {
         .from("follows")
         .select(`
           *,
-          follower:follower_id(id, username, display_name, avatar_url)
+          follower:profiles!follows_follower_id_fkey(id, username, display_name, avatar_url)
         `)
         .eq("following_id", user.id)
         .eq("status", "pending")
