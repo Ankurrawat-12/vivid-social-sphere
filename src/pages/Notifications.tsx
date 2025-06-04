@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -38,7 +37,7 @@ const Notifications = () => {
   const queryClient = useQueryClient();
   const { followRequests, isLoading: isLoadingRequests, handleRequest, isHandling } = useFollowRequests();
 
-  // Fetch notifications with corrected query syntax
+  // Fetch notifications with proper join query
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
@@ -55,13 +54,7 @@ const Notifications = () => {
           message_id,
           content,
           is_read,
-          created_at,
-          source_user:profiles!notifications_source_user_id_fkey(
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
+          created_at
         `)
         .eq("target_user_id", user.id)
         .order("created_at", { ascending: false });
@@ -71,7 +64,36 @@ const Notifications = () => {
         throw error;
       }
 
-      return data as NotificationWithUser[];
+      // Fetch source user data for each notification
+      const notificationsWithUsers = await Promise.all(
+        data.map(async (notification) => {
+          const { data: userData, error: userError } = await supabase
+            .from("profiles")
+            .select("id, username, display_name, avatar_url")
+            .eq("id", notification.source_user_id)
+            .single();
+
+          if (userError) {
+            console.error("Error fetching user data:", userError);
+            return {
+              ...notification,
+              source_user: {
+                id: notification.source_user_id,
+                username: "Unknown",
+                display_name: null,
+                avatar_url: null,
+              },
+            };
+          }
+
+          return {
+            ...notification,
+            source_user: userData,
+          };
+        })
+      );
+
+      return notificationsWithUsers as NotificationWithUser[];
     },
     enabled: !!user,
   });
