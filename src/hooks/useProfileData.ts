@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,13 +97,12 @@ export const useProfileData = (username: string | undefined) => {
           throw new Error("Already following this user");
         }
 
-        // Insert follow request
+        // Insert follow request - the database trigger will handle status and notifications
         const { error } = await supabase
           .from("follows")
           .insert({
             follower_id: user.id,
-            following_id: profileData.id,
-            status: profileData.is_private ? "pending" : "accepted"
+            following_id: profileData.id
           });
           
         if (error) {
