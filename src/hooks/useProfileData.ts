@@ -76,7 +76,6 @@ export const useProfileData = (username: string | undefined) => {
         } as ProfileWithCounts;
       } catch (error) {
         console.error("Error fetching profile:", error);
-        toast.error("Failed to load profile");
         return null;
       }
     }
@@ -87,12 +86,25 @@ export const useProfileData = (username: string | undefined) => {
       if (!user || !profileData) throw new Error("User or profile data missing");
       
       if (action === "follow") {
-        // Insert follow request (trigger will handle setting correct status)
+        // Check if already following
+        const { data: existingFollow } = await supabase
+          .from("follows")
+          .select("*")
+          .eq("follower_id", user.id)
+          .eq("following_id", profileData.id)
+          .maybeSingle();
+
+        if (existingFollow) {
+          throw new Error("Already following this user");
+        }
+
+        // Insert follow request
         const { error } = await supabase
           .from("follows")
           .insert({
             follower_id: user.id,
-            following_id: profileData.id
+            following_id: profileData.id,
+            status: profileData.is_private ? "pending" : "accepted"
           });
           
         if (error) {
@@ -121,6 +133,8 @@ export const useProfileData = (username: string | undefined) => {
     onSuccess: (status) => {
       setFollowStatus(status);
       queryClient.invalidateQueries({ queryKey: ["profile", username] });
+      queryClient.invalidateQueries({ queryKey: ["followRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       
       if (status === "pending") {
         toast.success("Follow request sent");
@@ -130,9 +144,9 @@ export const useProfileData = (username: string | undefined) => {
         toast.success(`Unfollowed @${profileData?.username}`);
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error updating follow status:", error);
-      toast.error("Failed to update follow status");
+      toast.error(error.message || "Failed to update follow status");
     }
   });
 

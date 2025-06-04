@@ -7,16 +7,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import FollowRequestItem from "@/components/notifications/FollowRequestItem";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFollowRequests } from "@/hooks/useFollowRequests";
 import { supabase } from "@/integrations/supabase/client";
-import { Notification, Profile } from "@/types/supabase";
 
-interface NotificationWithUser extends Notification {
-  source_user: Profile;
+interface NotificationWithUser {
+  id: string;
+  type: string;
+  source_user_id: string;
+  target_user_id: string;
+  post_id?: string | null;
+  message_id?: string | null;
+  content?: string | null;
+  is_read: boolean;
+  created_at: string;
+  source_user: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  };
 }
 
 const Notifications = () => {
@@ -34,8 +47,21 @@ const Notifications = () => {
       const { data, error } = await supabase
         .from("notifications")
         .select(`
-          *,
-          source_user:profiles(*)
+          id,
+          type,
+          source_user_id,
+          target_user_id,
+          post_id,
+          message_id,
+          content,
+          is_read,
+          created_at,
+          source_user:profiles!notifications_source_user_id_fkey(
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
         `)
         .eq("target_user_id", user.id)
         .order("created_at", { ascending: false });
@@ -45,7 +71,7 @@ const Notifications = () => {
         throw error;
       }
 
-      return data as unknown as NotificationWithUser[];
+      return data as NotificationWithUser[];
     },
     enabled: !!user,
   });
@@ -73,7 +99,7 @@ const Notifications = () => {
   });
 
   // Handle notification click
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = (notification: NotificationWithUser) => {
     if (!notification.is_read) {
       markAsReadMutation.mutate({ id: notification.id, isRead: true });
     }
@@ -88,7 +114,9 @@ const Notifications = () => {
         }
         break;
       case "follow":
-        navigate(`/profile/${notification.source_user.username}`);
+        if (notification.source_user) {
+          navigate(`/profile/${notification.source_user.username}`);
+        }
         break;
       case "message":
         navigate("/messages");
@@ -216,8 +244,6 @@ const Notifications = () => {
                               id: notification.id,
                               isRead: checked as boolean,
                             });
-                            // Stop propagation to prevent navigation when clicking checkbox
-                            event?.stopPropagation();
                           }}
                           onClick={(e) => e.stopPropagation()}
                         />
