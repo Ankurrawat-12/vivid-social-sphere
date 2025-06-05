@@ -1,16 +1,17 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Image } from "lucide-react";
+import { Upload, Image, Music } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase, createBucketIfNotExists } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface UploadPostFormProps {
-  onSuccess: () => void;  // Change onComplete to onSuccess
+  onSuccess: () => void;
 }
 
 const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
@@ -18,6 +19,7 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
   const queryClient = useQueryClient();
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [musicFile, setMusicFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -40,6 +42,18 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
     }
   };
 
+  const handleMusicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      // Validate file type
+      if (!selectedFile.type.startsWith('audio/')) {
+        toast.error("Please select a valid audio file");
+        return;
+      }
+      setMusicFile(selectedFile);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -58,7 +72,7 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
       
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("posts")
         .upload(filePath, file);
         
@@ -78,14 +92,42 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
 
       const imageUrl = publicUrlData.publicUrl;
       
-      // 3. Create post record in database
+      // 3. Upload music file if provided
+      let musicUrl = null;
+      if (musicFile) {
+        const musicExt = musicFile.name.split(".").pop();
+        const musicFileName = `music_${crypto.randomUUID()}.${musicExt}`;
+        const musicFilePath = `${user.id}/${musicFileName}`;
+        
+        const { error: musicUploadError } = await supabase.storage
+          .from("posts")
+          .upload(musicFilePath, musicFile);
+          
+        if (musicUploadError) {
+          console.error("Error uploading music file:", musicUploadError);
+          // Don't throw here - continue without music
+        } else {
+          const { data: musicPublicUrlData } = supabase.storage
+            .from("posts")
+            .getPublicUrl(musicFilePath);
+          musicUrl = musicPublicUrlData?.publicUrl;
+        }
+      }
+      
+      // 4. Create post record in database
+      const postData: any = {
+        user_id: user.id,
+        caption,
+        image_url: imageUrl,
+      };
+      
+      if (musicUrl) {
+        postData.music_url = musicUrl;
+      }
+      
       const { data: post, error: postError } = await supabase
         .from("posts")
-        .insert({
-          user_id: user.id,
-          caption,
-          image_url: imageUrl,
-        })
+        .insert(postData)
         .select()
         .single();
         
@@ -94,18 +136,17 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
         throw new Error(postError.message);
       }
       
-      // 4. Notify followers about the new post
+      // 5. Notify followers about the new post
       try {
-        // Get all followers
         const { data: followers, error: followersError } = await supabase
           .from("follows")
           .select("follower_id")
-          .eq("following_id", user.id);
+          .eq("following_id", user.id)
+          .eq("status", "accepted");
         
         if (followersError) {
           console.error("Error getting followers:", followersError);
         } else if (followers && followers.length > 0) {
-          // Create notifications for each follower
           const notifications = followers.map((follower) => ({
             type: "post",
             source_user_id: user.id,
@@ -114,7 +155,6 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
             content: caption.substring(0, 50) + (caption.length > 50 ? "..." : "")
           }));
           
-          // Insert notifications
           const { error: notificationError } = await supabase
             .from("notifications")
             .insert(notifications);
@@ -125,16 +165,15 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
         }
       } catch (notifyError) {
         console.error("Error in notification process:", notifyError);
-        // Don't throw here - post is created, notifications are secondary
       }
       
-      // 5. Invalidate posts query to refresh feed
+      // 6. Invalidate posts query to refresh feed
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       
-      // 6. Show success message
+      // 7. Show success message
       toast.success("Post created successfully");
       
-      // 7. Close modal
+      // 8. Close modal
       onSuccess();
     } catch (error) {
       console.error("Error uploading post:", error);
@@ -194,6 +233,47 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
           )}
         </div>
       </div>
+
+      {/* Music Upload */}
+      <div className="space-y-2">
+        <Label htmlFor="music-upload">Music (Optional)</Label>
+        <div className="border-2 border-dashed border-border rounded-md p-4 text-center">
+          {musicFile ? (
+            <div className="flex items-center justify-center gap-2">
+              <Music className="h-5 w-5 text-social-purple" />
+              <span className="text-sm">{musicFile.name}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMusicFile(null)}
+              >
+                Remove
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-2">
+              <Music className="h-8 w-8 text-muted-foreground mb-2" />
+              <Label
+                htmlFor="music-upload"
+                className="cursor-pointer text-sm text-social-purple hover:text-social-purple/80"
+              >
+                Click to add music
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                MP3, WAV, M4A up to 10MB
+              </p>
+              <Input
+                id="music-upload"
+                type="file"
+                className="hidden"
+                accept="audio/*"
+                onChange={handleMusicChange}
+              />
+            </div>
+          )}
+        </div>
+      </div>
       
       {/* Caption */}
       <div className="space-y-2">
@@ -223,7 +303,7 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
             <>
               <Upload className="h-4 w-4" />
               Post
-            </>
+            <//>
           )}
         </Button>
       </div>

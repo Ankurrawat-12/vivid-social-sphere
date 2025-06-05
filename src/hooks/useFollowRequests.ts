@@ -28,11 +28,17 @@ export const useFollowRequests = () => {
     queryFn: async () => {
       if (!user) return [];
 
+      console.log("Fetching follow requests for user:", user.id);
+
       const { data, error } = await supabase
         .from("follows")
         .select(`
-          *,
-          follower:profiles(id, username, display_name, avatar_url)
+          id,
+          follower_id,
+          following_id,
+          status,
+          created_at,
+          follower:profiles!follows_follower_id_fkey(id, username, display_name, avatar_url)
         `)
         .eq("following_id", user.id)
         .eq("status", "pending")
@@ -43,6 +49,7 @@ export const useFollowRequests = () => {
         throw error;
       }
 
+      console.log("Follow requests data:", data);
       return data as unknown as FollowRequest[];
     },
     enabled: !!user,
