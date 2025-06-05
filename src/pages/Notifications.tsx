@@ -38,7 +38,7 @@ const Notifications = () => {
   const queryClient = useQueryClient();
   const { followRequests, isLoading: isLoadingRequests, handleRequest, isHandling } = useFollowRequests();
 
-  // Fetch notifications with proper join query (exclude follow_request types and generic notifications)
+  // Fetch notifications with proper filtering
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
@@ -59,8 +59,7 @@ const Notifications = () => {
         `)
         .eq("target_user_id", user.id)
         .neq("type", "follow_request") // Exclude follow requests from general notifications
-        .neq("content", "New notification") // Exclude generic notifications
-        .not("content", "is", null) // Exclude notifications with null content
+        .neq("type", "message") // Exclude message notifications
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -68,9 +67,16 @@ const Notifications = () => {
         throw error;
       }
 
+      // Filter out notifications with generic content or null content
+      const filteredData = data.filter(notification => {
+        return notification.content && 
+               notification.content !== "New notification" &&
+               notification.content.trim() !== "";
+      });
+
       // Fetch source user data for each notification
       const notificationsWithUsers = await Promise.all(
-        data.map(async (notification) => {
+        filteredData.map(async (notification) => {
           const { data: userData, error: userError } = await supabase
             .from("profiles")
             .select("id, username, display_name, avatar_url")
@@ -207,7 +213,7 @@ const Notifications = () => {
     }
   };
 
-  // Get notification icon and text based on type
+  // Get notification content based on type
   const getNotificationContent = (notification: NotificationWithUser) => {
     const username = notification.source_user?.username || 'Unknown';
     
