@@ -42,6 +42,7 @@ export const usePostInteractions = () => {
               source_user_id: user.id,
               target_user_id: postUserId,
               post_id: postId,
+              content: "liked your post",
               is_read: false
             });
         }

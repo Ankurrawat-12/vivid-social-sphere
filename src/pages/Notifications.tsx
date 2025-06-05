@@ -3,7 +3,6 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -39,7 +38,7 @@ const Notifications = () => {
   const queryClient = useQueryClient();
   const { followRequests, isLoading: isLoadingRequests, handleRequest, isHandling } = useFollowRequests();
 
-  // Fetch notifications with proper join query (exclude follow_request types)
+  // Fetch notifications with proper join query (exclude follow_request types and generic notifications)
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
@@ -60,6 +59,8 @@ const Notifications = () => {
         `)
         .eq("target_user_id", user.id)
         .neq("type", "follow_request") // Exclude follow requests from general notifications
+        .neq("content", "New notification") // Exclude generic notifications
+        .not("content", "is", null) // Exclude notifications with null content
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -152,10 +153,10 @@ const Notifications = () => {
 
   // Mark notification as read
   const markAsReadMutation = useMutation({
-    mutationFn: async ({ id, isRead }: { id: string, isRead: boolean }) => {
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("notifications")
-        .update({ is_read: isRead })
+        .update({ is_read: true })
         .eq("id", id);
 
       if (error) {
@@ -175,14 +176,13 @@ const Notifications = () => {
   // Handle notification click
   const handleNotificationClick = (notification: NotificationWithUser) => {
     if (!notification.is_read) {
-      markAsReadMutation.mutate({ id: notification.id, isRead: true });
+      markAsReadMutation.mutate(notification.id);
     }
 
     // Navigate based on notification type
     switch (notification.type) {
       case "like":
       case "comment":
-      case "post":
         if (notification.post_id) {
           navigate(`/post/${notification.post_id}`);
         }
@@ -193,6 +193,11 @@ const Notifications = () => {
         }
         break;
       case "mention":
+        if (notification.post_id) {
+          navigate(`/post/${notification.post_id}`);
+        }
+        break;
+      case "post":
         if (notification.post_id) {
           navigate(`/post/${notification.post_id}`);
         }
@@ -218,7 +223,7 @@ const Notifications = () => {
       case "post":
         return `@${username} shared a new post: "${notification.content}"`;
       default:
-        return "New notification";
+        return notification.content || "New notification";
     }
   };
 
@@ -240,6 +245,7 @@ const Notifications = () => {
           toast.info("You have a new notification");
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
           queryClient.invalidateQueries({ queryKey: ["notificationsCount"] });
+          queryClient.invalidateQueries({ queryKey: ["followRequests"] });
         }
       )
       .subscribe();
@@ -278,7 +284,7 @@ const Notifications = () => {
                 {notifications.map((notification: NotificationWithUser) => (
                   <Card
                     key={notification.id}
-                    className={`cursor-pointer transition-colors ${
+                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${
                       notification.is_read ? "bg-card" : "bg-muted/40"
                     }`}
                     onClick={() => handleNotificationClick(notification)}
@@ -318,17 +324,6 @@ const Notifications = () => {
                               Follow Back
                             </Button>
                           )}
-                          
-                          <Checkbox
-                            checked={notification.is_read}
-                            onCheckedChange={(checked) => {
-                              markAsReadMutation.mutate({
-                                id: notification.id,
-                                isRead: checked as boolean,
-                              });
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
                         </div>
                       </div>
                     </CardContent>
