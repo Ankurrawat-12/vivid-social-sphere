@@ -69,7 +69,7 @@ const FollowRequestItem: React.FC<FollowRequestItemProps> = ({
               onClick={() => onReject(request.id)}
               disabled={isHandling}
             >
-              Reject
+              Delete
             </Button>
           </div>
         </div>

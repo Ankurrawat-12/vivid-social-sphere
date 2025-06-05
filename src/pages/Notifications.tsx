@@ -1,8 +1,10 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
@@ -37,7 +39,7 @@ const Notifications = () => {
   const queryClient = useQueryClient();
   const { followRequests, isLoading: isLoadingRequests, handleRequest, isHandling } = useFollowRequests();
 
-  // Fetch notifications with proper join query
+  // Fetch notifications with proper join query (exclude follow_request types)
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
@@ -57,6 +59,7 @@ const Notifications = () => {
           created_at
         `)
         .eq("target_user_id", user.id)
+        .neq("type", "follow_request") // Exclude follow requests from general notifications
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -96,6 +99,55 @@ const Notifications = () => {
       return notificationsWithUsers as NotificationWithUser[];
     },
     enabled: !!user,
+  });
+
+  // Check if current user is following the notification source user
+  const { data: followingStatus = {} } = useQuery({
+    queryKey: ["followingStatus", notifications.map(n => n.source_user_id)],
+    queryFn: async () => {
+      if (!user || notifications.length === 0) return {};
+
+      const sourceUserIds = [...new Set(notifications.map(n => n.source_user_id))];
+      
+      const { data, error } = await supabase
+        .from("follows")
+        .select("following_id, status")
+        .eq("follower_id", user.id)
+        .in("following_id", sourceUserIds);
+
+      if (error) {
+        console.error("Error fetching following status:", error);
+        return {};
+      }
+
+      return data.reduce((acc, follow) => {
+        acc[follow.following_id] = follow.status;
+        return acc;
+      }, {} as Record<string, string>);
+    },
+    enabled: !!user && notifications.length > 0,
+  });
+
+  // Follow back mutation
+  const followBackMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      const { error } = await supabase
+        .from("follows")
+        .insert({
+          follower_id: user!.id,
+          following_id: targetUserId
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["followingStatus"] });
+      toast.success("Follow request sent");
+    },
+    onError: (error) => {
+      console.error("Error following user:", error);
+      toast.error("Failed to follow user");
+    }
   });
 
   // Mark notification as read
@@ -140,9 +192,6 @@ const Notifications = () => {
           navigate(`/profile/${notification.source_user.username}`);
         }
         break;
-      case "message":
-        navigate("/messages");
-        break;
       case "mention":
         if (notification.post_id) {
           navigate(`/post/${notification.post_id}`);
@@ -164,10 +213,6 @@ const Notifications = () => {
         return `@${username} commented on your post: "${notification.content}"`;
       case "follow":
         return `@${username} started following you`;
-      case "follow_request":
-        return `@${username} wants to follow you`;
-      case "message":
-        return `@${username} sent you a message: "${notification.content}"`;
       case "mention":
         return `@${username} mentioned you in a post`;
       case "post":
@@ -259,16 +304,32 @@ const Notifications = () => {
                           </p>
                         </div>
                         
-                        <Checkbox
-                          checked={notification.is_read}
-                          onCheckedChange={(checked) => {
-                            markAsReadMutation.mutate({
-                              id: notification.id,
-                              isRead: checked as boolean,
-                            });
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        <div className="flex items-center gap-2">
+                          {notification.type === "follow" && 
+                           !followingStatus[notification.source_user_id] && (
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                followBackMutation.mutate(notification.source_user_id);
+                              }}
+                              disabled={followBackMutation.isPending}
+                            >
+                              Follow Back
+                            </Button>
+                          )}
+                          
+                          <Checkbox
+                            checked={notification.is_read}
+                            onCheckedChange={(checked) => {
+                              markAsReadMutation.mutate({
+                                id: notification.id,
+                                isRead: checked as boolean,
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
