@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface FollowRequest {
   id: string;
@@ -32,6 +35,72 @@ const FollowRequestItem: React.FC<FollowRequestItemProps> = ({
   onReject,
   isHandling
 }) => {
+  const queryClient = useQueryClient();
+
+  const acceptRequestMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      // Update the follow request status to accepted
+      const { error } = await supabase
+        .from("follows")
+        .update({ status: "accepted" })
+        .eq("id", requestId);
+
+      if (error) throw error;
+
+      // Create a follow notification
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert({
+          type: "follow",
+          source_user_id: request.follower_id,
+          target_user_id: request.following_id,
+          is_read: false
+        });
+
+      if (notificationError) {
+        console.error("Error creating follow notification:", notificationError);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["followRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success("Follow request accepted");
+    },
+    onError: (error) => {
+      console.error("Error accepting follow request:", error);
+      toast.error("Failed to accept follow request");
+    }
+  });
+
+  const rejectRequestMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      const { error } = await supabase
+        .from("follows")
+        .delete()
+        .eq("id", requestId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["followRequests"] });
+      toast.success("Follow request rejected");
+    },
+    onError: (error) => {
+      console.error("Error rejecting follow request:", error);
+      toast.error("Failed to reject follow request");
+    }
+  });
+
+  const handleAccept = () => {
+    acceptRequestMutation.mutate(request.id);
+    onAccept(request.id);
+  };
+
+  const handleReject = () => {
+    rejectRequestMutation.mutate(request.id);
+    onReject(request.id);
+  };
+
   return (
     <Card>
       <CardContent className="p-4">
@@ -58,16 +127,16 @@ const FollowRequestItem: React.FC<FollowRequestItemProps> = ({
           <div className="flex gap-2">
             <Button
               size="sm"
-              onClick={() => onAccept(request.id)}
-              disabled={isHandling}
+              onClick={handleAccept}
+              disabled={isHandling || acceptRequestMutation.isPending}
             >
               Accept
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onReject(request.id)}
-              disabled={isHandling}
+              onClick={handleReject}
+              disabled={isHandling || rejectRequestMutation.isPending}
             >
               Delete
             </Button>
