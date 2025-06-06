@@ -25,20 +25,42 @@ export const CreatorRequests = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch creator requests
+  // Fetch creator requests with proper join to profiles
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["creatorRequests"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("creator_requests")
         .select(`
-          *,
-          profiles(username, display_name)
+          id,
+          user_id,
+          status,
+          reason,
+          requested_at,
+          reviewed_at,
+          reviewed_by
         `)
         .order("requested_at", { ascending: false });
       
       if (error) throw error;
-      return data as CreatorRequest[];
+
+      // Fetch profiles separately for each request
+      const requestsWithProfiles = await Promise.all(
+        (data || []).map(async (request) => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username, display_name")
+            .eq("id", request.user_id)
+            .single();
+
+          return {
+            ...request,
+            profiles: profile || { username: "Unknown", display_name: null }
+          };
+        })
+      );
+
+      return requestsWithProfiles as CreatorRequest[];
     }
   });
 
