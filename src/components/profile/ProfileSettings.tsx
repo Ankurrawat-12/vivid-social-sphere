@@ -9,8 +9,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Archive, Settings, User } from "lucide-react";
+import { Archive, Settings, User, Video } from "lucide-react";
 import { toast } from "sonner";
+import { CreatorModeRequest } from "./CreatorModeRequest";
 
 interface ProfileSettingsProps {
   onComplete: () => void;
@@ -83,6 +84,13 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onComplete }) => {
             onCheckedChange={handlePrivacyToggle}
             disabled={updatePrivacyMutation.isPending}
           />
+        </div>
+        
+        <Separator />
+        
+        {/* Creator Mode Request Section */}
+        <div className="space-y-3">
+          <CreatorModeRequest />
         </div>
         
         <Separator />

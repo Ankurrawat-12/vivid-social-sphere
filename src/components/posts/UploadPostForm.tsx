@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, Image, Music, Video, Play, Pause } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { supabase, createBucketIfNotExists } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ interface MusicTrack {
 
 const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
   const { user } = useAuth();
+  const { isCreator } = useUserRole();
   const queryClient = useQueryClient();
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -67,8 +68,8 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
         
         video.onloadedmetadata = () => {
           const duration = video.duration;
-          if (duration > 60) {
-            toast.error("Video must be 60 seconds or less. Upgrade to creator mode for longer videos.");
+          if (duration > 60 && !isCreator) {
+            toast.error("Video must be 60 seconds or less. Request creator mode for longer videos.");
             return;
           }
           setMediaType("video");
@@ -191,18 +192,14 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
         fileUrl = publicUrlData.publicUrl;
       }
       
-      // Create post record
+      // Create post record with explicit user_id
       const postData: any = {
         user_id: user.id,
-        caption,
+        caption: caption || "",
         media_type: mediaType,
+        image_url: mediaType === "image" ? fileUrl : null,
+        video_url: mediaType === "video" ? fileUrl : null,
       };
-      
-      if (mediaType === "video") {
-        postData.video_url = fileUrl;
-      } else {
-        postData.image_url = fileUrl;
-      }
       
       // Add music data if selected
       if (selectedMusic) {
@@ -213,6 +210,8 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
           postData.music_end_time = musicEndTime;
         }
       }
+      
+      console.log("Creating post with data:", postData);
       
       const { data: post, error: postError } = await supabase
         .from("posts")
@@ -225,36 +224,7 @@ const UploadPostForm: React.FC<UploadPostFormProps> = ({ onSuccess }) => {
         throw new Error(postError.message);
       }
       
-      // Notify followers
-      try {
-        const { data: followers, error: followersError } = await supabase
-          .from("follows")
-          .select("follower_id")
-          .eq("following_id", user.id)
-          .eq("status", "accepted");
-        
-        if (followersError) {
-          console.error("Error getting followers:", followersError);
-        } else if (followers && followers.length > 0) {
-          const notifications = followers.map((follower) => ({
-            type: "post",
-            source_user_id: user.id,
-            target_user_id: follower.follower_id,
-            post_id: post.id,
-            content: caption.substring(0, 50) + (caption.length > 50 ? "..." : "")
-          }));
-          
-          const { error: notificationError } = await supabase
-            .from("notifications")
-            .insert(notifications);
-            
-          if (notificationError) {
-            console.error("Error creating notifications:", notificationError);
-          }
-        }
-      } catch (notifyError) {
-        console.error("Error in notification process:", notifyError);
-      }
+      console.log("Post created successfully:", post);
       
       // Clean up
       if (audioElement) {

@@ -13,6 +13,8 @@ export const useUserRole = () => {
     queryFn: async () => {
       if (!user) return "user";
 
+      console.log("Fetching user role for:", user.id);
+
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
@@ -26,7 +28,11 @@ export const useUserRole = () => {
         return "user";
       }
       
-      return (data?.role as UserRole) || "user";
+      console.log("User role data:", data);
+      const role = (data?.role as UserRole) || "user";
+      console.log("Final user role:", role);
+      
+      return role;
     },
     enabled: !!user,
   });
