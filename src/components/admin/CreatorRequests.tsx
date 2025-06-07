@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,14 +45,32 @@ export const CreatorRequests = () => {
           reason,
           status,
           requested_at,
-          user_id,
-          profiles!inner(id, username, display_name)
+          user_id
         `)
         .eq("status", "pending")
         .order("requested_at", { ascending: false });
       
       if (error) throw error;
-      return data as CreatorRequest[];
+
+      // Fetch profiles for each request
+      const requestsWithProfiles = await Promise.all(
+        data.map(async (request) => {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, username, display_name")
+            .eq("id", request.user_id)
+            .single();
+          
+          if (profileError) throw profileError;
+          
+          return {
+            ...request,
+            profiles: profile
+          };
+        })
+      );
+      
+      return requestsWithProfiles as CreatorRequest[];
     }
   });
 
@@ -66,14 +83,32 @@ export const CreatorRequests = () => {
         .select(`
           id,
           user_id,
-          granted_at,
-          profiles!inner(id, username, display_name)
+          granted_at
         `)
         .eq("role", "creator")
         .order("granted_at", { ascending: false });
       
       if (error) throw error;
-      return data as CreatorUser[];
+
+      // Fetch profiles for each creator
+      const creatorsWithProfiles = await Promise.all(
+        data.map(async (creator) => {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, username, display_name")
+            .eq("id", creator.user_id)
+            .single();
+          
+          if (profileError) throw profileError;
+          
+          return {
+            ...creator,
+            profiles: profile
+          };
+        })
+      );
+      
+      return creatorsWithProfiles as CreatorUser[];
     }
   });
 
