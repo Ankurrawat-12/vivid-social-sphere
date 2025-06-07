@@ -14,10 +14,12 @@ export const useUserRole = () => {
       if (!user) return "user";
 
       console.log("Fetching user role for:", user.id);
+      console.log("User email:", user.email);
 
-      // First check if this is the admin email
+      // First check if this is the admin email - force admin role
       if (user.email === "ankurrawat620@gmail.com") {
-        console.log("Admin email detected, checking database role...");
+        console.log("Admin email detected, returning admin role");
+        return "admin";
       }
 
       const { data, error } = await supabase

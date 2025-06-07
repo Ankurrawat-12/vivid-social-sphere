@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -21,13 +22,15 @@ import {
   MessageCircle, 
   PlusSquare, 
   Search, 
-  User 
+  User,
+  Shield
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import UploadPostForm from '../posts/UploadPostForm';
 
 const Navbar = () => {
   const { user, profile, signOut } = useAuth();
+  const { isAdmin } = useUserRole();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
@@ -89,6 +92,15 @@ const Navbar = () => {
                 <Bell className="h-5 w-5" />
               </Button>
             </Link>
+
+            {/* Admin Button - Only show for admins */}
+            {isAdmin && (
+              <Link to="/admin">
+                <Button variant="ghost" size="icon">
+                  <Shield className="h-5 w-5" />
+                </Button>
+              </Link>
+            )}
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -106,6 +118,17 @@ const Navbar = () => {
                     <span>Profile</span>
                   </DropdownMenuItem>
                 </Link>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <Link to="/admin">
+                      <DropdownMenuItem className="cursor-pointer">
+                        <Shield className="mr-2 h-4 w-4" />
+                        <span>Admin Panel</span>
+                      </DropdownMenuItem>
+                    </Link>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -182,6 +205,14 @@ const Navbar = () => {
                 <PlusSquare className="h-5 w-5" />
                 <span>Create Post</span>
               </div>
+
+              {/* Admin option in mobile menu */}
+              {isAdmin && (
+                <div onClick={() => { navigate('/admin'); closeMenu(); }} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md">
+                  <Shield className="h-5 w-5" />
+                  <span>Admin Panel</span>
+                </div>
+              )}
               
               <div onClick={handleLogout} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-accent rounded-md text-destructive">
                 <LogOut className="h-5 w-5" />
