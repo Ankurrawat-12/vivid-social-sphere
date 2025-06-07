@@ -90,9 +90,12 @@ export const useFollowRequests = () => {
       }
     },
     onSuccess: (_, { action }) => {
+      // Invalidate all related queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["followRequests"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["profile"] }); // Refresh profile data
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      queryClient.invalidateQueries({ queryKey: ["userPosts"] });
       
       if (action === "accept") {
         toast.success("Follow request accepted");

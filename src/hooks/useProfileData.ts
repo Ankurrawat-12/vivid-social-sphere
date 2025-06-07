@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,8 +78,16 @@ export const useProfileData = (username: string | undefined) => {
         console.error("Error fetching profile:", error);
         return null;
       }
-    }
+    },
+    refetchInterval: 5000, // Refetch every 5 seconds to pick up status changes
   });
+
+  // Update follow status when profile data changes
+  useEffect(() => {
+    if (profileData?.follow_status) {
+      setFollowStatus(profileData.follow_status);
+    }
+  }, [profileData]);
 
   const followMutation = useMutation({
     mutationFn: async ({ action }: { action: "follow" | "unfollow" }) => {
