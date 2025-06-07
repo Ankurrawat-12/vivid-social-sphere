@@ -47,7 +47,7 @@ export const CreatorRequests = () => {
           status,
           requested_at,
           user_id,
-          profiles!creator_requests_user_id_profiles_id_fk(id, username, display_name)
+          profiles!inner(id, username, display_name)
         `)
         .eq("status", "pending")
         .order("requested_at", { ascending: false });
@@ -67,7 +67,7 @@ export const CreatorRequests = () => {
           id,
           user_id,
           granted_at,
-          profiles!user_roles_user_id_profiles_id_fk(id, username, display_name)
+          profiles!inner(id, username, display_name)
         `)
         .eq("role", "creator")
         .order("granted_at", { ascending: false });
