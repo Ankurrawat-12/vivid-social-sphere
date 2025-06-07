@@ -13,7 +13,8 @@ interface CreatorRequest {
   reason: string | null;
   status: string | null;
   requested_at: string | null;
-  user: {
+  user_id: string;
+  profiles: {
     id: string;
     username: string;
     display_name: string | null;
@@ -22,12 +23,13 @@ interface CreatorRequest {
 
 interface CreatorUser {
   id: string;
-  user: {
+  user_id: string;
+  granted_at: string;
+  profiles: {
     id: string;
     username: string;
     display_name: string | null;
   };
-  granted_at: string;
 }
 
 export const CreatorRequests = () => {
@@ -41,7 +43,7 @@ export const CreatorRequests = () => {
         .from("creator_requests")
         .select(`
           *,
-          user:user_id(id, username, display_name)
+          profiles!creator_requests_user_id_fkey(id, username, display_name)
         `)
         .eq("status", "pending")
         .order("requested_at", { ascending: false });
@@ -59,7 +61,7 @@ export const CreatorRequests = () => {
         .from("user_roles")
         .select(`
           *,
-          user:user_id(id, username, display_name)
+          profiles!user_roles_user_id_fkey(id, username, display_name)
         `)
         .eq("role", "creator")
         .order("granted_at", { ascending: false });
@@ -166,9 +168,9 @@ export const CreatorRequests = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium">@{request.user.username}</span>
-                        {request.user.display_name && (
-                          <span className="text-muted-foreground">({request.user.display_name})</span>
+                        <span className="font-medium">@{request.profiles.username}</span>
+                        {request.profiles.display_name && (
+                          <span className="text-muted-foreground">({request.profiles.display_name})</span>
                         )}
                         {getStatusBadge(request.status)}
                       </div>
@@ -193,7 +195,7 @@ export const CreatorRequests = () => {
                       onClick={() => updateCreatorRequestMutation.mutate({ 
                         requestId: request.id, 
                         status: "approved",
-                        userId: request.user.id 
+                        userId: request.user_id 
                       })}
                       disabled={updateCreatorRequestMutation.isPending}
                       className="bg-green-500 hover:bg-green-600"
@@ -207,7 +209,7 @@ export const CreatorRequests = () => {
                       onClick={() => updateCreatorRequestMutation.mutate({ 
                         requestId: request.id, 
                         status: "rejected",
-                        userId: request.user.id 
+                        userId: request.user_id 
                       })}
                       disabled={updateCreatorRequestMutation.isPending}
                     >
@@ -241,9 +243,9 @@ export const CreatorRequests = () => {
                 <CardContent className="flex items-center justify-between p-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">@{creator.user.username}</span>
-                      {creator.user.display_name && (
-                        <span className="text-muted-foreground">({creator.user.display_name})</span>
+                      <span className="font-medium">@{creator.profiles.username}</span>
+                      {creator.profiles.display_name && (
+                        <span className="text-muted-foreground">({creator.profiles.display_name})</span>
                       )}
                       <Badge variant="default" className="bg-purple-500">Creator</Badge>
                     </div>
@@ -255,7 +257,7 @@ export const CreatorRequests = () => {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => revokeCreatorMutation.mutate(creator.user.id)}
+                    onClick={() => revokeCreatorMutation.mutate(creator.user_id)}
                     disabled={revokeCreatorMutation.isPending}
                   >
                     <UserMinus className="h-4 w-4 mr-1" />

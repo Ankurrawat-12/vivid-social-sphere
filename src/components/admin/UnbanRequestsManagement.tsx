@@ -6,14 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, X, UserCheck } from "lucide-react";
+import { Check, X } from "lucide-react";
 
 interface UnbanRequest {
   id: string;
   reason: string;
   status: string;
   requested_at: string;
-  user: {
+  user_id: string;
+  profiles: {
     username: string;
     display_name: string | null;
   };
@@ -30,7 +31,7 @@ export const UnbanRequestsManagement = () => {
         .from("unban_requests")
         .select(`
           *,
-          user:user_id(username, display_name)
+          profiles!unban_requests_user_id_fkey(username, display_name)
         `)
         .order("requested_at", { ascending: false });
       
@@ -108,9 +109,9 @@ export const UnbanRequestsManagement = () => {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="font-medium">@{request.user.username}</span>
-                      {request.user.display_name && (
-                        <span className="text-muted-foreground">({request.user.display_name})</span>
+                      <span className="font-medium">@{request.profiles.username}</span>
+                      {request.profiles.display_name && (
+                        <span className="text-muted-foreground">({request.profiles.display_name})</span>
                       )}
                       {getStatusBadge(request.status)}
                     </div>
@@ -134,7 +135,7 @@ export const UnbanRequestsManagement = () => {
                       onClick={() => updateUnbanRequestMutation.mutate({ 
                         requestId: request.id, 
                         status: "approved",
-                        userId: request.user.id 
+                        userId: request.user_id 
                       })}
                       disabled={updateUnbanRequestMutation.isPending}
                       className="bg-green-500 hover:bg-green-600"
@@ -148,7 +149,7 @@ export const UnbanRequestsManagement = () => {
                       onClick={() => updateUnbanRequestMutation.mutate({ 
                         requestId: request.id, 
                         status: "rejected",
-                        userId: request.user.id 
+                        userId: request.user_id 
                       })}
                       disabled={updateUnbanRequestMutation.isPending}
                     >

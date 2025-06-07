@@ -41,10 +41,10 @@ export const ReportsManagement = () => {
         .from("reports")
         .select(`
           *,
-          reporter:reporter_id(username),
-          reported_user:reported_user_id(username),
-          post:post_id(id, caption, image_url),
-          comment:comment_id(id, content)
+          reporter:profiles!reports_reporter_id_fkey(username),
+          reported_user:profiles!reports_reported_user_id_fkey(username),
+          post:posts(id, caption, image_url),
+          comment:comments(id, content)
         `)
         .order("created_at", { ascending: false });
       
