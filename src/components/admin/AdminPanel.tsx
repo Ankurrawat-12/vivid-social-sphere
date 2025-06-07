@@ -6,6 +6,8 @@ import { MusicManager } from "./MusicManager";
 import { UserManagement } from "./UserManagement";
 import { PostModeration } from "./PostModeration";
 import { CreatorRequests } from "./CreatorRequests";
+import { ReportsManagement } from "./ReportsManagement";
+import { UnbanRequestsManagement } from "./UnbanRequestsManagement";
 
 const AdminPanel = () => {
   return (
@@ -16,11 +18,13 @@ const AdminPanel = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="music" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="music">Music Library</TabsTrigger>
               <TabsTrigger value="users">User Management</TabsTrigger>
               <TabsTrigger value="posts">Post Moderation</TabsTrigger>
               <TabsTrigger value="creators">Creator Requests</TabsTrigger>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="unbans">Unban Requests</TabsTrigger>
             </TabsList>
             
             <TabsContent value="music" className="mt-6">
@@ -37,6 +41,14 @@ const AdminPanel = () => {
             
             <TabsContent value="creators" className="mt-6">
               <CreatorRequests />
+            </TabsContent>
+            
+            <TabsContent value="reports" className="mt-6">
+              <ReportsManagement />
+            </TabsContent>
+            
+            <TabsContent value="unbans" className="mt-6">
+              <UnbanRequestsManagement />
             </TabsContent>
           </Tabs>
         </CardContent>

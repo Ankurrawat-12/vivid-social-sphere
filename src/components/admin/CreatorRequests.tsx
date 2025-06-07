@@ -5,196 +5,268 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Check, X, Clock } from "lucide-react";
+import { Check, X, UserMinus } from "lucide-react";
 
 interface CreatorRequest {
   id: string;
-  user_id: string;
-  status: "pending" | "approved" | "rejected";
   reason: string | null;
-  requested_at: string;
-  profiles: {
+  status: string | null;
+  requested_at: string | null;
+  user: {
+    id: string;
     username: string;
     display_name: string | null;
   };
 }
 
+interface CreatorUser {
+  id: string;
+  user: {
+    id: string;
+    username: string;
+    display_name: string | null;
+  };
+  granted_at: string;
+}
+
 export const CreatorRequests = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch creator requests with proper join to profiles
-  const { data: requests = [], isLoading } = useQuery({
-    queryKey: ["creatorRequests"],
+  // Fetch pending creator requests
+  const { data: creatorRequests = [], isLoading: loadingRequests } = useQuery({
+    queryKey: ["adminCreatorRequests"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("creator_requests")
         .select(`
-          id,
-          user_id,
-          status,
-          reason,
-          requested_at,
-          reviewed_at,
-          reviewed_by
+          *,
+          user:user_id(id, username, display_name)
         `)
+        .eq("status", "pending")
         .order("requested_at", { ascending: false });
       
       if (error) throw error;
-
-      // Fetch profiles separately for each request
-      const requestsWithProfiles = await Promise.all(
-        (data || []).map(async (request) => {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("username, display_name")
-            .eq("id", request.user_id)
-            .single();
-
-          return {
-            ...request,
-            profiles: profile || { username: "Unknown", display_name: null }
-          };
-        })
-      );
-
-      return requestsWithProfiles as CreatorRequest[];
+      return data as CreatorRequest[];
     }
   });
 
-  // Review creator request mutation
-  const reviewRequestMutation = useMutation({
-    mutationFn: async ({ requestId, action }: { requestId: string; action: "approve" | "reject" }) => {
-      if (!user) throw new Error("User not authenticated");
+  // Fetch current creators
+  const { data: currentCreators = [], isLoading: loadingCreators } = useQuery({
+    queryKey: ["adminCurrentCreators"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select(`
+          *,
+          user:user_id(id, username, display_name)
+        `)
+        .eq("role", "creator")
+        .order("granted_at", { ascending: false });
+      
+      if (error) throw error;
+      return data as CreatorUser[];
+    }
+  });
 
-      const { error } = await supabase
+  // Update creator request mutation
+  const updateCreatorRequestMutation = useMutation({
+    mutationFn: async ({ requestId, status, userId }: { requestId: string; status: string; userId: string }) => {
+      // Update the creator request status
+      const { error: requestError } = await supabase
         .from("creator_requests")
-        .update({
-          status: action === "approve" ? "approved" : "rejected",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id
+        .update({ 
+          status,
+          reviewed_at: new Date().toISOString()
         })
         .eq("id", requestId);
 
-      if (error) throw error;
+      if (requestError) throw requestError;
 
       // If approved, grant creator role
-      if (action === "approve") {
-        const request = requests.find(r => r.id === requestId);
-        if (request) {
-          const { error: roleError } = await supabase
-            .from("user_roles")
-            .insert({
-              user_id: request.user_id,
-              role: "creator",
-              granted_by: user.id
-            });
+      if (status === "approved") {
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({
+            user_id: userId,
+            role: "creator"
+          });
 
-          if (roleError) throw roleError;
-
-          // Create notification
-          await supabase
-            .from("notifications")
-            .insert({
-              type: "creator_approved",
-              source_user_id: user.id,
-              target_user_id: request.user_id,
-              content: "Your creator request has been approved! You can now upload longer videos."
-            });
-        }
+        if (roleError) throw roleError;
       }
     },
-    onSuccess: (_, { action }) => {
-      queryClient.invalidateQueries({ queryKey: ["creatorRequests"] });
-      toast.success(`Request ${action === "approve" ? "approved" : "rejected"} successfully`);
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ["adminCreatorRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCurrentCreators"] });
+      if (status === "approved") {
+        toast.success("Creator role granted successfully");
+      } else {
+        toast.success("Creator request " + status);
+      }
     },
     onError: (error) => {
-      console.error("Error reviewing request:", error);
-      toast.error("Failed to review request");
+      console.error("Error updating creator request:", error);
+      toast.error("Failed to update creator request");
     }
   });
 
-  const getStatusBadge = (status: string) => {
+  // Revoke creator role mutation
+  const revokeCreatorMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId)
+        .eq("role", "creator");
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminCurrentCreators"] });
+      toast.success("Creator role revoked successfully");
+    },
+    onError: (error) => {
+      console.error("Error revoking creator role:", error);
+      toast.error("Failed to revoke creator role");
+    }
+  });
+
+  const getStatusBadge = (status: string | null) => {
     switch (status) {
       case "pending":
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+        return <Badge variant="outline">Pending</Badge>;
       case "approved":
-        return <Badge variant="default"><Check className="h-3 w-3 mr-1" />Approved</Badge>;
+        return <Badge variant="default" className="bg-green-500">Approved</Badge>;
       case "rejected":
-        return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Rejected</Badge>;
+        return <Badge variant="destructive">Rejected</Badge>;
       default:
-        return null;
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold">Creator Requests</h3>
+    <div className="space-y-8">
+      {/* Pending Creator Requests */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Pending Creator Requests</h3>
+        
+        {loadingRequests ? (
+          <div className="text-center">Loading creator requests...</div>
+        ) : creatorRequests.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <p className="text-muted-foreground">No pending creator requests</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {creatorRequests.map((request) => (
+              <Card key={request.id}>
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium">@{request.user.username}</span>
+                        {request.user.display_name && (
+                          <span className="text-muted-foreground">({request.user.display_name})</span>
+                        )}
+                        {getStatusBadge(request.status)}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Requested: {request.requested_at ? new Date(request.requested_at).toLocaleDateString() : "Unknown"}
+                      </p>
+                    </div>
+                  </div>
 
-      {isLoading ? (
-        <div className="text-center">Loading creator requests...</div>
-      ) : (
-        <div className="grid gap-4">
-          {requests.map((request) => (
-            <Card key={request.id}>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
+                  {request.reason && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium mb-2">Reason:</p>
+                      <div className="bg-muted p-3 rounded-md">
+                        <p className="text-sm">{request.reason}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => updateCreatorRequestMutation.mutate({ 
+                        requestId: request.id, 
+                        status: "approved",
+                        userId: request.user.id 
+                      })}
+                      disabled={updateCreatorRequestMutation.isPending}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => updateCreatorRequestMutation.mutate({ 
+                        requestId: request.id, 
+                        status: "rejected",
+                        userId: request.user.id 
+                      })}
+                      disabled={updateCreatorRequestMutation.isPending}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Current Creators */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Current Creators</h3>
+        
+        {loadingCreators ? (
+          <div className="text-center">Loading current creators...</div>
+        ) : currentCreators.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <p className="text-muted-foreground">No creators found</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {currentCreators.map((creator) => (
+              <Card key={creator.id}>
+                <CardContent className="flex items-center justify-between p-4">
                   <div>
-                    <h4 className="font-medium">@{request.profiles.username}</h4>
-                    {request.profiles.display_name && (
-                      <p className="text-sm text-muted-foreground">{request.profiles.display_name}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Requested {new Date(request.requested_at).toLocaleDateString()}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium">@{creator.user.username}</span>
+                      {creator.user.display_name && (
+                        <span className="text-muted-foreground">({creator.user.display_name})</span>
+                      )}
+                      <Badge variant="default" className="bg-purple-500">Creator</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Granted: {new Date(creator.granted_at).toLocaleDateString()}
                     </p>
-                    {request.reason && (
-                      <p className="text-sm mt-2 p-2 bg-muted rounded-md">{request.reason}</p>
-                    )}
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(request.status)}
-                    
-                    {request.status === "pending" && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => reviewRequestMutation.mutate({ requestId: request.id, action: "approve" })}
-                          disabled={reviewRequestMutation.isPending}
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => reviewRequestMutation.mutate({ requestId: request.id, action: "reject" })}
-                          disabled={reviewRequestMutation.isPending}
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          
-          {requests.length === 0 && (
-            <Card>
-              <CardContent className="text-center py-8">
-                <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No creator requests yet.</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => revokeCreatorMutation.mutate(creator.user.id)}
+                    disabled={revokeCreatorMutation.isPending}
+                  >
+                    <UserMinus className="h-4 w-4 mr-1" />
+                    Revoke
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

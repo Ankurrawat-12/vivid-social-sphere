@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, createBucketIfNotExists } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Upload, Music } from "lucide-react";
@@ -17,7 +17,6 @@ export const MusicUploadForm = () => {
   const [artist, setArtist] = useState("");
   const [genre, setGenre] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
 
   const uploadMusicMutation = useMutation({
     mutationFn: async ({ file, title, artist, genre }: {
@@ -27,6 +26,9 @@ export const MusicUploadForm = () => {
       genre: string;
     }) => {
       if (!user) throw new Error("User not authenticated");
+
+      // Ensure the music bucket exists
+      await createBucketIfNotExists('music');
 
       // Create audio element to get duration
       const audio = new Audio();

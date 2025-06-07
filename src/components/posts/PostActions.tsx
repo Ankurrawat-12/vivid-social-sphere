@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { MoreHorizontal, Trash } from "lucide-react";
+import { MoreHorizontal, Trash, Flag } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ReportModal } from "./ReportModal";
 
 interface PostActionsProps {
   postId: string;
@@ -34,6 +35,7 @@ const PostActions: React.FC<PostActionsProps> = ({ postId, userId, imageUrl }) =
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isOwner = user?.id === userId;
@@ -87,8 +89,6 @@ const PostActions: React.FC<PostActionsProps> = ({ postId, userId, imageUrl }) =
     }
   };
 
-  if (!isOwner) return null;
-
   return (
     <>
       <DropdownMenu>
@@ -98,13 +98,23 @@ const PostActions: React.FC<PostActionsProps> = ({ postId, userId, imageUrl }) =
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem 
-            className="text-red-500 flex cursor-pointer" 
-            onClick={() => setIsDeleteDialogOpen(true)}
-          >
-            <Trash className="mr-2 h-4 w-4" />
-            Delete Post
-          </DropdownMenuItem>
+          {isOwner ? (
+            <DropdownMenuItem 
+              className="text-red-500 flex cursor-pointer" 
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
+              <Trash className="mr-2 h-4 w-4" />
+              Delete Post
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem 
+              className="text-orange-500 flex cursor-pointer" 
+              onClick={() => setIsReportModalOpen(true)}
+            >
+              <Flag className="mr-2 h-4 w-4" />
+              Report Post
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -128,6 +138,13 @@ const PostActions: React.FC<PostActionsProps> = ({ postId, userId, imageUrl }) =
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        postId={postId}
+        reportedUserId={userId}
+      />
     </>
   );
 };
