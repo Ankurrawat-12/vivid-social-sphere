@@ -23,6 +23,7 @@ export interface Post {
   user_id: string;
   caption?: string | null;
   image_url: string;
+  music_url?: string | null;
   created_at: string;
   updated_at: string;
 }
