@@ -9,16 +9,34 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { Video, Clock, Check, X } from "lucide-react";
 
 export const CreatorModeRequest = () => {
   const { user } = useAuth();
-  const { isCreator } = useUserRole();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [reason, setReason] = useState("");
+
+  // Check if user has creator role
+  const { data: isCreator, isLoading: isLoadingRole } = useQuery({
+    queryKey: ["userCreatorRole", user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "creator")
+        .maybeSingle();
+      
+      if (error && error.code !== "PGRST116") throw error;
+      return !!data;
+    },
+    enabled: !!user,
+    refetchInterval: 5000, // Check every 5 seconds for role changes
+  });
 
   // Check if user has existing request
   const { data: existingRequest } = useQuery({
@@ -35,7 +53,7 @@ export const CreatorModeRequest = () => {
       if (error && error.code !== "PGRST116") throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !isCreator,
   });
 
   // Submit creator request mutation
@@ -84,6 +102,22 @@ export const CreatorModeRequest = () => {
         return null;
     }
   };
+
+  if (isLoadingRole) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Video className="h-5 w-5" />
+            Creator Mode
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isCreator) {
     return (

@@ -1,9 +1,9 @@
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Send, Bookmark, MoreHorizontal } from "lucide-react";
+import { Heart, MessageSquare, Send, Bookmark, Music, Play, Pause } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Post } from "@/types";
@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import CommentSection from "./CommentSection";
 import SharePostModal from "./SharePostModal";
+import PostActions from "./PostActions";
 
 interface PostCardProps {
   post: Post;
@@ -23,7 +24,33 @@ const PostCard = ({ post }: PostCardProps) => {
   const [likesCount, setLikesCount] = useState(post.likes);
   const [showComments, setShowComments] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [musicInfo, setMusicInfo] = useState<{ title?: string; artist?: string } | null>(null);
   const { user } = useAuth();
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Fetch music info if post has music
+  useEffect(() => {
+    if (post.musicUrl) {
+      const fetchMusicInfo = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("music_library")
+            .select("title, artist")
+            .eq("file_url", post.musicUrl)
+            .single();
+          
+          if (!error && data) {
+            setMusicInfo(data);
+          }
+        } catch (error) {
+          console.error("Error fetching music info:", error);
+        }
+      };
+      
+      fetchMusicInfo();
+    }
+  }, [post.musicUrl]);
 
   const handleLike = async () => {
     if (!user) return;
@@ -76,9 +103,43 @@ const PostCard = ({ post }: PostCardProps) => {
     }
   };
 
-  const handleSave = () => {
-    setSaved(!saved);
-    toast(saved ? 'Post removed from saved items' : 'Post saved to your profile');
+  const handleSave = async () => {
+    if (!user) return;
+
+    if (saved) {
+      // Remove from saved
+      const { error } = await supabase
+        .from('saved_posts')
+        .delete()
+        .eq('post_id', post.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        toast.error('Failed to remove from saved');
+        console.error('Error removing saved post:', error);
+        return;
+      }
+      
+      setSaved(false);
+      toast.success('Post removed from saved items');
+    } else {
+      // Add to saved
+      const { error } = await supabase
+        .from('saved_posts')
+        .insert({
+          post_id: post.id,
+          user_id: user.id
+        });
+
+      if (error) {
+        toast.error('Failed to save post');
+        console.error('Error saving post:', error);
+        return;
+      }
+      
+      setSaved(true);
+      toast.success('Post saved to your profile');
+    }
   };
 
   const handleCommentClick = () => {
@@ -87,6 +148,17 @@ const PostCard = ({ post }: PostCardProps) => {
 
   const handleShareClick = () => {
     setIsShareModalOpen(true);
+  };
+
+  const toggleMusic = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
   };
 
   return (
@@ -100,18 +172,45 @@ const PostCard = ({ post }: PostCardProps) => {
               <AvatarFallback>{post.user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <span className="text-sm font-medium">
-                {post.user.username}
-                {post.user.isVerified && (
-                  <span className="inline-block ml-1 text-social-purple">✓</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {post.user.username}
+                  {post.user.isVerified && (
+                    <span className="inline-block ml-1 text-social-purple">✓</span>
+                  )}
+                </span>
+                {musicInfo && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                    <Music className="h-3 w-3" />
+                    <span>{musicInfo.title} - {musicInfo.artist}</span>
+                    {post.musicUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 ml-1"
+                        onClick={toggleMusic}
+                      >
+                        {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                      </Button>
+                    )}
+                  </div>
                 )}
-              </span>
+              </div>
             </div>
           </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-5 w-5" />
-          </Button>
+          <PostActions postId={post.id} userId={post.userId} imageUrl={post.imageUrl} />
         </div>
+
+        {/* Hidden audio element for music */}
+        {post.musicUrl && (
+          <audio
+            ref={audioRef}
+            src={post.musicUrl}
+            onEnded={() => setIsPlaying(false)}
+            onPause={() => setIsPlaying(false)}
+            onPlay={() => setIsPlaying(true)}
+          />
+        )}
 
         {/* Post Image */}
         <div className="relative pb-[100%]">

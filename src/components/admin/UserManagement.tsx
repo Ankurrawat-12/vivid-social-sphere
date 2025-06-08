@@ -46,9 +46,21 @@ export const UserManagement = () => {
         .eq("id", userId);
 
       if (error) throw error;
+
+      // If banning user, also revoke all their roles
+      if (ban) {
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", userId);
+        
+        if (roleError) console.error("Error removing user roles:", roleError);
+      }
     },
     onSuccess: (_, { ban }) => {
       queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+      queryClient.invalidateQueries({ queryKey: ["adminCurrentCreators"] });
+      queryClient.invalidateQueries({ queryKey: ["userCreatorRole"] });
       toast.success(ban ? "User banned successfully" : "User unbanned successfully");
     },
     onError: (error) => {

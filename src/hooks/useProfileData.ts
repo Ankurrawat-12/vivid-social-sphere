@@ -79,7 +79,7 @@ export const useProfileData = (username: string | undefined) => {
         return null;
       }
     },
-    refetchInterval: 5000, // Refetch every 5 seconds to pick up status changes
+    refetchInterval: 2000, // Reduce to 2 seconds for faster updates
   });
 
   // Update follow status when profile data changes
@@ -139,7 +139,8 @@ export const useProfileData = (username: string | undefined) => {
     },
     onSuccess: (status) => {
       setFollowStatus(status);
-      queryClient.invalidateQueries({ queryKey: ["profile", username] });
+      // Force immediate refetch instead of just invalidating
+      queryClient.refetchQueries({ queryKey: ["profile", username] });
       queryClient.invalidateQueries({ queryKey: ["followRequests"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       
