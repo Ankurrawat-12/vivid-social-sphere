@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   username: string;
@@ -22,6 +21,7 @@ export interface Post {
   timestamp: string;
   isLiked: boolean;
   isSaved: boolean;
+  musicUrl?: string;
 }
 
 export interface Story {
