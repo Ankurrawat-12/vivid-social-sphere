@@ -52,6 +52,26 @@ const PostCard = ({ post }: PostCardProps) => {
     }
   }, [post.musicUrl]);
 
+  // Handle audio events
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => setIsPlaying(false);
+
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
   const handleLike = async () => {
     if (!user) return;
 
@@ -155,9 +175,11 @@ const PostCard = ({ post }: PostCardProps) => {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        audioRef.current.play().catch(error => {
+          console.error('Error playing audio:', error);
+          toast.error('Failed to play music');
+        });
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -206,9 +228,7 @@ const PostCard = ({ post }: PostCardProps) => {
           <audio
             ref={audioRef}
             src={post.musicUrl}
-            onEnded={() => setIsPlaying(false)}
-            onPause={() => setIsPlaying(false)}
-            onPlay={() => setIsPlaying(true)}
+            preload="metadata"
           />
         )}
 
